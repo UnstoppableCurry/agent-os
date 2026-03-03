@@ -4,7 +4,7 @@ use anyhow::Result;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::{broadcast, Mutex};
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use crate::types::AgentEvent;
 
@@ -55,17 +55,23 @@ impl ProcessHandle {
                 }
                 // Try JSON parse first (for stream-json mode)
                 let event = match serde_json::from_str::<AgentEvent>(&line) {
-                    Ok(event) => event,
+                    Ok(event) => {
+                        debug!("Process {} event: {:?}", pid, event);
+                        event
+                    }
                     Err(_) => {
                         // Fallback: raw text (strip ANSI codes)
                         let clean = strip_ansi(&line);
                         if clean.trim().is_empty() {
                             continue;
                         }
+                        debug!("Process {} raw: {}", pid, clean);
                         AgentEvent::Raw { text: clean }
                     }
                 };
-                let _ = tx.send(event);
+                let subscribers = tx.receiver_count();
+                let sent = tx.send(event);
+                debug!("Process {} broadcast: subscribers={}, sent={:?}", pid, subscribers, sent.is_ok());
             }
             info!("Process {} stdout reader exited", pid);
         });
@@ -79,7 +85,8 @@ impl ProcessHandle {
                 if clean.trim().is_empty() {
                     continue;
                 }
-                let _ = tx2.send(AgentEvent::Raw { text: clean });
+                let _ = tx2.send(AgentEvent::Raw { text: clean.clone() });
+                debug!("Process {} stderr: {}", pid, clean);
             }
         });
 

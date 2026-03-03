@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::extract::ws::{Message, WebSocket};
-use tracing::{error, info};
+use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use crate::bot::BotManager;
@@ -26,8 +26,8 @@ pub async fn handle_socket_inner(mut socket: WebSocket, mgr: Arc<BotManager>, bo
             result = event_rx.recv() => {
                 match result {
                     Ok(event) => {
-                        // Convert structured events to plain text for terminal display
                         let text = event_to_text(&event);
+                        debug!("WS event -> text: {:?} -> {:?}", event, text);
                         if text.is_empty() {
                             continue;
                         }
