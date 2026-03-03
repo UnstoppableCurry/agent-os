@@ -17,7 +17,7 @@ public struct BotListView: View {
                 }
                 .onDelete(perform: deleteBots)
             }
-            .navigationTitle("Bots")
+            .navigationTitle("机器人")
             .toolbar {
                 Button {
                     showCreateSheet = true
@@ -61,7 +61,7 @@ struct BotRow: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Button(bot.status == .running ? "Stop" : "Start") {
+            Button(bot.status == .running ? "停止" : "启动") {
                 onToggle()
             }
             .buttonStyle(.bordered)
@@ -89,23 +89,23 @@ struct CreateBotSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Bot Name", text: $name)
-                Picker("Engine", selection: $engine) {
+                TextField("机器人名称", text: $name)
+                Picker("引擎", selection: $engine) {
                     ForEach(BotEngine.allCases, id: \.self) { e in
                         Text(e.rawValue.capitalized).tag(e)
                     }
                 }
             }
-            .navigationTitle("New Bot")
+            .navigationTitle("新建机器人")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Create") {
+                    Button("创建") {
                         guard !name.isEmpty else { return }
                         onCreate(Bot(name: name, engine: engine))
                         dismiss()

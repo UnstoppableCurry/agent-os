@@ -18,49 +18,49 @@ public struct SettingsView: View {
                 privacySection
                 aboutSection
             }
-            .navigationTitle("Settings")
+            .navigationTitle("设置")
         }
     }
 
     private var serverSection: some View {
-        Section("Server") {
-            TextField("Server URL", text: $serverURL)
+        Section("服务器") {
+            TextField("服务器地址", text: $serverURL)
                 #if os(iOS)
                 .textInputAutocapitalization(.never)
                 .keyboardType(.URL)
                 #endif
                 .autocorrectionDisabled()
 
-            Button("Test Connection") {
+            Button("测试连接") {
                 Task { await testConnection() }
             }
         }
     }
 
     private var sensorSection: some View {
-        Section("Sensors") {
-            Toggle("HealthKit", isOn: $healthKitEnabled)
-            Toggle("Contacts", isOn: $contactsEnabled)
-            Toggle("Calendar", isOn: $calendarEnabled)
-            Toggle("Location", isOn: $locationEnabled)
-            Toggle("Screen Time", isOn: $screenTimeEnabled)
+        Section("传感器") {
+            Toggle("健康数据", isOn: $healthKitEnabled)
+            Toggle("通讯录", isOn: $contactsEnabled)
+            Toggle("日历", isOn: $calendarEnabled)
+            Toggle("位置", isOn: $locationEnabled)
+            Toggle("屏幕使用", isOn: $screenTimeEnabled)
         }
     }
 
     private var privacySection: some View {
-        Section("Privacy") {
-            NavigationLink("Data Collected") {
+        Section("隐私") {
+            NavigationLink("数据收集说明") {
                 PrivacyDetailView()
             }
-            Button("Clear Local Data", role: .destructive) {}
+            Button("清除本地数据", role: .destructive) {}
         }
     }
 
     private var aboutSection: some View {
-        Section("About") {
-            LabeledContent("Version", value: "0.1.0")
-            LabeledContent("Build", value: "1")
-            Link("Source Code", destination: URL(string: "https://github.com/UnstoppableCurry/agent-os")!)
+        Section("关于") {
+            LabeledContent("版本", value: "0.1.0")
+            LabeledContent("构建号", value: "1")
+            Link("源代码", destination: URL(string: "https://github.com/UnstoppableCurry/agent-os")!)
         }
     }
 
@@ -72,20 +72,20 @@ public struct SettingsView: View {
 struct PrivacyDetailView: View {
     var body: some View {
         List {
-            Section("What we collect") {
-                Label("Step count and activity data", systemImage: "figure.walk")
-                Label("Sleep duration", systemImage: "bed.double")
-                Label("Heart rate summaries", systemImage: "heart")
-                Label("Calendar event titles and times", systemImage: "calendar")
-                Label("Contact names (no phone numbers)", systemImage: "person.2")
+            Section("我们收集的数据") {
+                Label("步数和运动数据", systemImage: "figure.walk")
+                Label("睡眠时长", systemImage: "bed.double")
+                Label("心率摘要", systemImage: "heart")
+                Label("日历事件标题和时间", systemImage: "calendar")
+                Label("联系人姓名（不含电话号码）", systemImage: "person.2")
             }
-            Section("What we never collect") {
-                Label("Message content", systemImage: "xmark.circle")
-                Label("Photos or media", systemImage: "xmark.circle")
-                Label("Passwords or credentials", systemImage: "xmark.circle")
-                Label("Precise location history", systemImage: "xmark.circle")
+            Section("我们绝不收集") {
+                Label("消息内容", systemImage: "xmark.circle")
+                Label("照片或媒体", systemImage: "xmark.circle")
+                Label("密码或凭据", systemImage: "xmark.circle")
+                Label("精确位置历史", systemImage: "xmark.circle")
             }
         }
-        .navigationTitle("Privacy")
+        .navigationTitle("隐私")
     }
 }

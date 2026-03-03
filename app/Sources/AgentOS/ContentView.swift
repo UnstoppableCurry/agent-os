@@ -9,25 +9,25 @@ public struct ContentView: View {
         TabView(selection: $selectedTab) {
             ChatView()
                 .tabItem {
-                    Label("Chat", systemImage: "bubble.left.and.bubble.right")
+                    Label("对话", systemImage: "bubble.left.and.bubble.right")
                 }
                 .tag(0)
 
             BotListView()
                 .tabItem {
-                    Label("Bots", systemImage: "cpu")
+                    Label("机器人", systemImage: "cpu")
                 }
                 .tag(1)
 
             DashboardView()
                 .tabItem {
-                    Label("Dashboard", systemImage: "chart.bar")
+                    Label("仪表盘", systemImage: "chart.bar")
                 }
                 .tag(2)
 
             SettingsView()
                 .tabItem {
-                    Label("Settings", systemImage: "gear")
+                    Label("设置", systemImage: "gear")
                 }
                 .tag(3)
         }

@@ -14,7 +14,7 @@ public struct ChatView: View {
                 Divider()
                 inputBar
             }
-            .navigationTitle("Chat")
+            .navigationTitle("对话")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -44,7 +44,7 @@ public struct ChatView: View {
 
     private var inputBar: some View {
         HStack(spacing: 12) {
-            TextField("Message...", text: $inputText, axis: .vertical)
+            TextField("输入消息...", text: $inputText, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(1...5)
                 .padding(10)
@@ -125,7 +125,7 @@ struct MessageBubble: View {
             VStack(alignment: .leading, spacing: 4) {
                 switch message.type {
                 case .thinking:
-                    Label("Thinking", systemImage: "brain")
+                    Label("思考中", systemImage: "brain")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Text(message.content)
@@ -133,14 +133,14 @@ struct MessageBubble: View {
                         .foregroundStyle(.secondary)
                         .italic()
                 case .toolUse:
-                    Label(message.toolName ?? "Tool", systemImage: "wrench")
+                    Label(message.toolName ?? "工具", systemImage: "wrench")
                         .font(.caption.bold())
                         .foregroundStyle(.orange)
                     Text(message.content)
                         .font(.caption)
                         .fontDesign(.monospaced)
                 case .toolResult:
-                    Label("Result", systemImage: "checkmark.circle")
+                    Label("结果", systemImage: "checkmark.circle")
                         .font(.caption)
                         .foregroundStyle(.green)
                     Text(message.content)
