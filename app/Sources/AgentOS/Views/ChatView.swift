@@ -239,14 +239,19 @@ public struct ChatView: View {
 
     @MainActor
     private func handleIncoming(_ text: String) {
-        // Backend sends plain text — each line might be:
-        // response text, 💭 thinking, 🔧 tool, 📋 result, ───separator, etc.
-        if text.hasPrefix("💭") {
+        // Backend sends plain text with emoji prefixes from event_to_text():
+        // 🟢 system init, 💭 thinking, 🔧 tool, 📋 result, ───separator, ❌ error
+        if text.hasPrefix("🟢") {
+            addLine(String(text.dropFirst(2)).trimmingCharacters(in: .whitespaces), style: .system)
+        } else if text.hasPrefix("💭") {
             addLine(String(text.dropFirst(2)).trimmingCharacters(in: .whitespaces), style: .thinking)
         } else if text.hasPrefix("🔧") {
             addLine(String(text.dropFirst(2)).trimmingCharacters(in: .whitespaces), style: .tool)
         } else if text.hasPrefix("📋") {
             addLine(String(text.dropFirst(2)).trimmingCharacters(in: .whitespaces), style: .toolResult)
+        } else if text.hasPrefix("❌") {
+            addLine(String(text.dropFirst(2)).trimmingCharacters(in: .whitespaces), style: .error)
+            isWaiting = false
         } else if text.contains("───") {
             addLine("", style: .separator)
             isWaiting = false
@@ -254,12 +259,8 @@ public struct ChatView: View {
             addLine(text, style: .error)
             isWaiting = false
         } else {
-            // Normal response text — append to last response line or create new
-            if let lastIdx = lines.indices.last, lines[lastIdx].style == .response {
-                lines[lastIdx].text += text
-            } else {
-                addLine(text, style: .response)
-            }
+            // Normal response text — create new line per message
+            addLine(text, style: .response)
         }
     }
 

@@ -76,13 +76,15 @@ impl AgentEngine for ClaudeCodeAdapter {
     }
 
     async fn send(&self, handle: &ProcessHandle, message: &str) -> Result<()> {
-        // stream-json user message format: type="user", message={role:"user", content:"..."}
+        // stream-json user message format (verified from Claude Agent SDK)
         let msg = serde_json::json!({
             "type": "user",
+            "session_id": "",
             "message": {
                 "role": "user",
                 "content": message,
-            }
+            },
+            "parent_tool_use_id": null,
         });
         handle.send_line(&serde_json::to_string(&msg)?).await
     }
