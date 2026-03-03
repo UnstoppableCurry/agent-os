@@ -6,7 +6,8 @@ public struct ChatView: View {
 
     @State private var lines: [ConsoleLine] = []
     @State private var inputText = ""
-    @State private var isStreaming = false
+    @State private var webSocketTask: URLSessionWebSocketTask?
+    @State private var isConnected = false
 
     public init(botId: String, botName: String) {
         self.botId = botId
@@ -18,16 +19,16 @@ public struct ChatView: View {
             // Terminal output area
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 2) {
+                    LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(lines) { line in
                             Text(line.text)
-                                .font(.system(.body, design: .monospaced))
-                                .foregroundStyle(line.color)
+                                .font(.system(size: 13, design: .monospaced))
+                                .foregroundStyle(.white)
                                 .textSelection(.enabled)
                                 .id(line.id)
                         }
                     }
-                    .padding(12)
+                    .padding(8)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .background(Color.black)
@@ -45,89 +46,109 @@ public struct ChatView: View {
             // Input bar
             HStack(spacing: 8) {
                 Text(">")
-                    .font(.system(.body, design: .monospaced))
+                    .font(.system(size: 13, design: .monospaced))
                     .foregroundStyle(.green)
-                TextField("输入消息...", text: $inputText)
-                    .font(.system(.body, design: .monospaced))
+                TextField("输入...", text: $inputText)
+                    .font(.system(size: 13, design: .monospaced))
                     .textFieldStyle(.plain)
-                    .onSubmit { sendMessage() }
-                    .disabled(isStreaming)
+                    .onSubmit { sendInput() }
                 Button {
-                    sendMessage()
+                    sendInput()
                 } label: {
-                    Image(systemName: isStreaming ? "stop.fill" : "paperplane.fill")
+                    Image(systemName: "paperplane.fill")
                         .foregroundStyle(inputText.isEmpty ? .gray : .green)
                 }
                 .buttonStyle(.plain)
-                .disabled(inputText.isEmpty && !isStreaming)
+                .disabled(inputText.isEmpty)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(Color.black)
         }
         .navigationTitle(botName)
-        .onAppear {
-            appendLine("已连接到 \(botName) (id: \(botId.prefix(8))...)", color: .gray)
-            appendLine("输入消息开始对话\n", color: .gray)
+        .onAppear { connectWebSocket() }
+        .onDisappear { disconnectWebSocket() }
+    }
+
+    private func connectWebSocket() {
+        let serverURL = UserDefaults.standard.string(forKey: "serverURL") ?? "http://127.0.0.1:3000"
+        let wsURL = serverURL
+            .replacingOccurrences(of: "http://", with: "ws://")
+            .replacingOccurrences(of: "https://", with: "wss://")
+
+        guard let url = URL(string: "\(wsURL)/v1/bots/\(botId)/ws") else {
+            appendLine("[错误] 无效的 WebSocket URL")
+            return
+        }
+
+        let session = URLSession(configuration: .default)
+        let task = session.webSocketTask(with: url)
+        task.resume()
+        webSocketTask = task
+        isConnected = true
+
+        appendLine("已连接到 \(botName)")
+        receiveMessages()
+    }
+
+    private func receiveMessages() {
+        webSocketTask?.receive { result in
+            switch result {
+            case .success(let message):
+                Task { @MainActor in
+                    switch message {
+                    case .string(let text):
+                        appendLine(text)
+                    case .data(let data):
+                        if let text = String(data: data, encoding: .utf8) {
+                            appendLine(text)
+                        }
+                    @unknown default:
+                        break
+                    }
+                    // Continue receiving
+                    receiveMessages()
+                }
+            case .failure(let error):
+                Task { @MainActor in
+                    if isConnected {
+                        appendLine("[断开] \(error.localizedDescription)")
+                        isConnected = false
+                    }
+                }
+            }
         }
     }
 
-    private func sendMessage() {
+    private func sendInput() {
         guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let text = inputText
         inputText = ""
 
-        appendLine("> \(text)", color: .green)
-        isStreaming = true
-        // 添加空行作为回复占位
-        let replyId = appendLine("", color: .white)
-
-        Task {
-            await APIClient.shared.sendMessage(text, botId: botId) { event in
+        let wsMessage = URLSessionWebSocketTask.Message.string(text)
+        webSocketTask?.send(wsMessage) { error in
+            if let error {
                 Task { @MainActor in
-                    applyEvent(event, replyLineId: replyId)
+                    appendLine("[发送失败] \(error.localizedDescription)")
                 }
             }
-            await MainActor.run {
-                isStreaming = false
-                appendLine("", color: .white) // blank line after response
-            }
         }
+    }
+
+    private func disconnectWebSocket() {
+        isConnected = false
+        webSocketTask?.cancel(with: .goingAway, reason: nil)
+        webSocketTask = nil
     }
 
     @MainActor
-    private func applyEvent(_ event: StreamEvent, replyLineId: UUID) {
-        switch event {
-        case .contentDelta(let text):
-            if let idx = lines.firstIndex(where: { $0.id == replyLineId }) {
-                lines[idx].text += text
-            }
-        case .thinking(let text):
-            appendLine("[思考] \(text)", color: .cyan)
-        case .toolUse(_, let name, let input):
-            appendLine("[工具] \(name): \(input.prefix(200))", color: .orange)
-        case .toolResult(_, let content):
-            appendLine("[结果] \(content.prefix(300))", color: .green)
-        case .messageStop:
-            isStreaming = false
-        case .error(let msg):
-            appendLine("[错误] \(msg)", color: .red)
-            isStreaming = false
-        default:
-            break
-        }
-    }
-
-    @MainActor @discardableResult
-    private func appendLine(_ text: String, color: Color) -> UUID {
-        let line = ConsoleLine(text: text, color: color)
+    private func appendLine(_ text: String) {
+        let line = ConsoleLine(text: text)
         lines.append(line)
-        return line.id
     }
 }
 
 struct ConsoleLine: Identifiable {
     let id = UUID()
     var text: String
-    var color: Color
 }

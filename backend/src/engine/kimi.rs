@@ -37,8 +37,6 @@ impl KimiAdapter {
 impl AgentEngine for KimiAdapter {
     async fn spawn(&self, config: &BotConfig) -> Result<ProcessHandle> {
         let mut args = vec![
-            "--output-format", "stream-json",
-            "--input-format", "stream-json",
             "--dangerously-skip-permissions",
         ];
 
@@ -66,11 +64,7 @@ impl AgentEngine for KimiAdapter {
     }
 
     async fn send(&self, handle: &ProcessHandle, message: &str) -> Result<()> {
-        let msg = serde_json::json!({
-            "type": "user_message",
-            "content": message,
-        });
-        handle.send_line(&serde_json::to_string(&msg)?).await
+        handle.send_line(message).await
     }
 
     fn subscribe(&self, handle: &ProcessHandle) -> broadcast::Receiver<AgentEvent> {

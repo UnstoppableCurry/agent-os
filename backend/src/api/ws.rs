@@ -5,6 +5,7 @@ use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::bot::BotManager;
+use crate::types::AgentEvent;
 
 pub async fn handle_socket_inner(mut socket: WebSocket, mgr: Arc<BotManager>, bot_id: Uuid) {
     info!("WebSocket connected for bot {}", bot_id);
@@ -15,7 +16,7 @@ pub async fn handle_socket_inner(mut socket: WebSocket, mgr: Arc<BotManager>, bo
             error!("Failed to subscribe to bot {}: {}", bot_id, e);
             let _ = socket
                 .send(Message::Text(
-                    serde_json::json!({"error": e.to_string()}).to_string().into(),
+                    format!("[错误] {}", e).into(),
                 ))
                 .await;
             return;
@@ -27,14 +28,12 @@ pub async fn handle_socket_inner(mut socket: WebSocket, mgr: Arc<BotManager>, bo
             result = event_rx.recv() => {
                 match result {
                     Ok(event) => {
-                        let json = match serde_json::to_string(&event) {
-                            Ok(j) => j,
-                            Err(e) => {
-                                error!("Failed to serialize event: {}", e);
-                                continue;
-                            }
+                        // For raw events, send plain text; for others, serialize
+                        let text = match &event {
+                            AgentEvent::Raw { text } => text.clone(),
+                            other => serde_json::to_string(other).unwrap_or_default(),
                         };
-                        if socket.send(Message::Text(json.into())).await.is_err() {
+                        if socket.send(Message::Text(text.into())).await.is_err() {
                             break;
                         }
                     }
@@ -48,8 +47,9 @@ pub async fn handle_socket_inner(mut socket: WebSocket, mgr: Arc<BotManager>, bo
             Some(msg) = recv_msg(&mut socket) => {
                 match msg {
                     Message::Text(text) => {
-                        if let Err(e) = mgr.send_message(bot_id, &text).await {
-                            error!("Failed to send message to bot: {}", e);
+                        // Send raw text to bot's stdin
+                        if let Err(e) = mgr.send_stdin(bot_id, &text).await {
+                            error!("Failed to send to bot stdin: {}", e);
                         }
                     }
                     Message::Close(_) => break,

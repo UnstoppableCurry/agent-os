@@ -4,7 +4,7 @@ use anyhow::Result;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::{broadcast, Mutex};
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 use crate::types::AgentEvent;
 
@@ -32,6 +32,9 @@ impl ProcessHandle {
 
         // Remove CLAUDECODE env to bypass nested session detection
         command.env_remove("CLAUDECODE");
+        // Disable color output for piped stdout
+        command.env("NO_COLOR", "1");
+        command.env("TERM", "dumb");
 
         let mut child = command.spawn()?;
         let pid = child.id().unwrap_or(0);
@@ -40,39 +43,36 @@ impl ProcessHandle {
         let stdout = child.stdout.take().expect("stdout not captured");
         let stderr = child.stderr.take().expect("stderr not captured");
 
-        // broadcast channel: 256 buffer, multiple subscribers
-        let (event_tx, _) = broadcast::channel::<AgentEvent>(256);
+        // broadcast channel: 1024 buffer for raw output
+        let (event_tx, _) = broadcast::channel::<AgentEvent>(1024);
         let tx = event_tx.clone();
+        let tx2 = event_tx.clone();
 
-        // Stdout reader — parse NDJSON events
+        // Stdout reader — send raw text lines
         tokio::spawn(async move {
             let reader = BufReader::new(stdout);
             let mut lines = reader.lines();
             while let Ok(Some(line)) = lines.next_line().await {
-                if line.trim().is_empty() {
+                let clean = strip_ansi(&line);
+                if clean.trim().is_empty() {
                     continue;
                 }
-                let event = match serde_json::from_str::<AgentEvent>(&line) {
-                    Ok(event) => event,
-                    Err(_) => AgentEvent::Result {
-                        result: serde_json::json!({"text": line}),
-                        subtype: Some("raw".to_string()),
-                    },
-                };
-                // If no subscribers, the send will fail — that's fine
+                let event = AgentEvent::Raw { text: clean };
                 let _ = tx.send(event);
             }
             info!("Process {} stdout reader exited", pid);
         });
 
-        // Stderr reader — log warnings
+        // Stderr reader — also send as raw output (not just log)
         tokio::spawn(async move {
             let reader = BufReader::new(stderr);
             let mut lines = reader.lines();
             while let Ok(Some(line)) = lines.next_line().await {
-                if !line.trim().is_empty() {
-                    warn!("Process {} stderr: {}", pid, line);
+                let clean = strip_ansi(&line);
+                if clean.trim().is_empty() {
+                    continue;
                 }
+                let _ = tx2.send(AgentEvent::Raw { text: clean });
             }
         });
 
@@ -107,9 +107,55 @@ impl ProcessHandle {
 
     /// Stop the process
     pub async fn stop(&self) -> Result<()> {
-        // Drop the stdin to signal EOF to the child
         let mut stdin = self.stdin.lock().await;
         stdin.shutdown().await?;
         Ok(())
     }
+}
+
+/// Strip ANSI escape codes from text
+fn strip_ansi(input: &str) -> String {
+    let mut result = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\x1b' {
+            match chars.peek() {
+                Some('[') => {
+                    chars.next();
+                    // CSI sequence: skip until ASCII letter
+                    while let Some(&ch) = chars.peek() {
+                        chars.next();
+                        if ch.is_ascii_alphabetic() {
+                            break;
+                        }
+                    }
+                }
+                Some(']') => {
+                    chars.next();
+                    // OSC sequence: skip until BEL or ST
+                    while let Some(ch) = chars.next() {
+                        if ch == '\x07' {
+                            break;
+                        }
+                        if ch == '\x1b' {
+                            if chars.peek() == Some(&'\\') {
+                                chars.next();
+                                break;
+                            }
+                        }
+                    }
+                }
+                _ => {
+                    // Unknown escape, skip next char
+                    chars.next();
+                }
+            }
+        } else if c == '\r' {
+            // Skip carriage return
+            continue;
+        } else {
+            result.push(c);
+        }
+    }
+    result
 }

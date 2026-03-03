@@ -71,6 +71,8 @@ pub enum BotState {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum AgentEvent {
+    #[serde(rename = "raw")]
+    Raw { text: String },
     #[serde(rename = "message_start")]
     MessageStart { message: serde_json::Value },
     #[serde(rename = "content_block_start")]

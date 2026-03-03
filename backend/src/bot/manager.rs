@@ -132,6 +132,23 @@ impl BotManager {
         }
     }
 
+    /// Send raw text to bot's stdin (for WebSocket terminal)
+    pub async fn send_stdin(&self, id: Uuid, text: &str) -> Result<()> {
+        let bots = self.bots.read().await;
+        let bot = bots.get(&id)
+            .ok_or_else(|| anyhow::anyhow!("Bot not found"))?;
+
+        let mut instance = bot.lock().await;
+
+        if let Some(ref handle) = instance.handle {
+            handle.send_line(text).await?;
+            instance.status.message_count += 1;
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Bot process not running"))
+        }
+    }
+
     /// Subscribe to bot events (for WebSocket)
     pub async fn subscribe(&self, id: Uuid) -> Result<broadcast::Receiver<AgentEvent>> {
         let bots = self.bots.read().await;
