@@ -2,7 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use tokio::sync::broadcast;
 
-use crate::types::{AgentEvent, BotConfig, EngineCapabilities};
+use crate::types::{AgentEvent, BotConfig};
 
 use super::ProcessHandle;
 
@@ -19,7 +19,4 @@ pub trait AgentEngine: Send + Sync {
 
     /// Stop the process
     async fn stop(&self, handle: &ProcessHandle) -> Result<()>;
-
-    /// Engine capabilities
-    fn capabilities(&self) -> EngineCapabilities;
 }

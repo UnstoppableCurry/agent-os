@@ -17,7 +17,7 @@ pub struct ProcessHandle {
 
 impl ProcessHandle {
     /// Spawn a CLI process with the given command and args
-    pub async fn spawn(cmd: &str, args: &[&str], env: &[(&str, &str)]) -> Result<Self> {
+    pub async fn spawn(cmd: &str, args: &[&str], env: &[(&str, &str)], working_dir: Option<&str>) -> Result<Self> {
         let mut command = Command::new(cmd);
         command
             .args(args)
@@ -26,12 +26,18 @@ impl ProcessHandle {
             .stderr(std::process::Stdio::piped())
             .kill_on_drop(true);
 
+        if let Some(dir) = working_dir {
+            command.current_dir(dir);
+        }
+
         for (k, v) in env {
             command.env(k, v);
         }
 
-        // Remove CLAUDECODE env to bypass nested session detection
+        // Remove all Claude-related env vars to prevent nesting detection
         command.env_remove("CLAUDECODE");
+        command.env_remove("CLAUDE_CODE_ENTRYPOINT");
+        command.env_remove("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS");
 
         let mut child = command.spawn()?;
         let pid = child.id().unwrap_or(0);
@@ -107,10 +113,12 @@ impl ProcessHandle {
 
     /// Send a line to stdin
     pub async fn send_line(&self, line: &str) -> Result<()> {
+        debug!("send_line pid={}: {}", self.pid, &line[..line.len().min(200)]);
         let mut stdin = self.stdin.lock().await;
         stdin.write_all(line.as_bytes()).await?;
         stdin.write_all(b"\n").await?;
         stdin.flush().await?;
+        debug!("send_line pid={}: flushed", self.pid);
         Ok(())
     }
 

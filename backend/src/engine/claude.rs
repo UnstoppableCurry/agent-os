@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use tokio::sync::broadcast;
 use tracing::info;
 
-use crate::types::{AgentEvent, BotConfig, EngineCapabilities};
+use crate::types::{AgentEvent, BotConfig};
 
 use super::{AgentEngine, ProcessHandle};
 
@@ -50,30 +50,39 @@ impl AgentEngine for ClaudeCodeAdapter {
             args.push(&system_prompt_owned);
         }
 
-        let work_dir;
-        if let Some(ref dir) = config.working_dir {
-            work_dir = dir.clone();
-            args.push("--cwd");
-            args.push(&work_dir);
-        }
-
         let env = vec![
             ("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1"),
             ("CLAUDE_CODE_DISABLE_BACKGROUND_TASKS", "1"),
         ];
 
-        info!("Spawning Claude Code: {} {}", self.claude_path, args.join(" "));
-        let handle = ProcessHandle::spawn(&self.claude_path, &args, &env).await?;
+        let work_dir = config.working_dir.as_deref();
+        info!("Spawning Claude Code: {} {} (cwd: {:?})", self.claude_path, args.join(" "), work_dir);
+        let handle = ProcessHandle::spawn(&self.claude_path, &args, &env, work_dir).await?;
         info!("Claude Code process started, pid={}", handle.pid);
+
+        // Send the SDK initialization control request
+        // Claude Code's stream-json input requires this before accepting user messages
+        let init_msg = serde_json::json!({
+            "type": "control_request",
+            "request": {
+                "subtype": "initialize"
+            },
+            "request_id": "init-1"
+        });
+        info!("Sending SDK initialize request to pid={}", handle.pid);
+        handle.send_line(&serde_json::to_string(&init_msg)?).await?;
 
         Ok(handle)
     }
 
     async fn send(&self, handle: &ProcessHandle, message: &str) -> Result<()> {
-        // stream-json input format
+        // stream-json user message format: type="user", message={role:"user", content:"..."}
         let msg = serde_json::json!({
-            "type": "user_message",
-            "content": message,
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": message,
+            }
         });
         handle.send_line(&serde_json::to_string(&msg)?).await
     }
@@ -84,13 +93,5 @@ impl AgentEngine for ClaudeCodeAdapter {
 
     async fn stop(&self, handle: &ProcessHandle) -> Result<()> {
         handle.stop().await
-    }
-
-    fn capabilities(&self) -> EngineCapabilities {
-        EngineCapabilities {
-            name: "Claude Code".to_string(),
-            supports_streaming: true,
-            supports_tools: true,
-        }
     }
 }

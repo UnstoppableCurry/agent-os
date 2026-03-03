@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use tokio::sync::broadcast;
 use tracing::info;
 
-use crate::types::{AgentEvent, BotConfig, EngineCapabilities};
+use crate::types::{AgentEvent, BotConfig};
 
 use super::{AgentEngine, ProcessHandle};
 
@@ -47,17 +47,11 @@ impl AgentEngine for KimiAdapter {
             args.push(&system_prompt_owned);
         }
 
-        let work_dir;
-        if let Some(ref dir) = config.working_dir {
-            work_dir = dir.clone();
-            args.push("--cwd");
-            args.push(&work_dir);
-        }
-
         let env: Vec<(&str, &str)> = vec![];
+        let work_dir = config.working_dir.as_deref();
 
-        info!("Spawning Kimi: {} {}", self.kimi_path, args.join(" "));
-        let handle = ProcessHandle::spawn(&self.kimi_path, &args, &env).await?;
+        info!("Spawning Kimi: {} {} (cwd: {:?})", self.kimi_path, args.join(" "), work_dir);
+        let handle = ProcessHandle::spawn(&self.kimi_path, &args, &env, work_dir).await?;
         info!("Kimi process started, pid={}", handle.pid);
 
         Ok(handle)
@@ -73,13 +67,5 @@ impl AgentEngine for KimiAdapter {
 
     async fn stop(&self, handle: &ProcessHandle) -> Result<()> {
         handle.stop().await
-    }
-
-    fn capabilities(&self) -> EngineCapabilities {
-        EngineCapabilities {
-            name: "Kimi".to_string(),
-            supports_streaming: true,
-            supports_tools: true,
-        }
     }
 }

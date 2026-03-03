@@ -112,6 +112,7 @@ impl BotManager {
             .ok_or_else(|| anyhow::anyhow!("Bot not found"))?;
 
         let mut instance = bot.lock().await;
+        info!("send_message: bot={}, engine={:?}, has_handle={}", id, instance.config.engine, instance.handle.is_some());
 
         let engine_key = match &instance.config.engine {
             EngineType::Claude => "claude",
@@ -124,7 +125,9 @@ impl BotManager {
         if let Some(ref handle) = instance.handle {
             // Subscribe BEFORE sending so we don't miss events
             let rx = engine.subscribe(handle);
+            info!("send_message: sending to stdin...");
             engine.send(handle, content).await?;
+            info!("send_message: sent successfully");
             instance.status.message_count += 1;
             Ok(rx)
         } else {

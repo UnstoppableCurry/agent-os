@@ -107,6 +107,7 @@ async fn bots_send(
     Path(id): Path<uuid::Uuid>,
     Json(req): Json<types::SendMessageRequest>,
 ) -> Response {
+    info!("bots_send: bot={}, content={}", id, &req.content[..req.content.len().min(50)]);
     let mut event_rx = match s.bot_manager.send_message(id, &req.content).await {
         Ok(rx) => rx,
         Err(e) => {
@@ -121,8 +122,8 @@ async fn bots_send(
                     let json = serde_json::to_string(&event).unwrap_or_default();
                     yield Ok::<_, Infallible>(Event::default().data(json));
 
-                    // Stop streaming after message_stop
-                    if matches!(event, types::AgentEvent::MessageStop { .. }) {
+                    // Stop streaming after result event
+                    if matches!(event, types::AgentEvent::Result { .. }) {
                         yield Ok(Event::default().data("[DONE]"));
                         break;
                     }

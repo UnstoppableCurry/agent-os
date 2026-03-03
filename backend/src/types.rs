@@ -7,9 +7,9 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamEvent {
     pub ts: DateTime<Utc>,
-    pub source: String,      // "chat:claude", "app:dental-exam", "sensor:healthkit"
+    pub source: String,
     #[serde(rename = "type")]
-    pub event_type: String,   // "message", "study_session", "health_summary"
+    pub event_type: String,
     pub data: serde_json::Value,
     #[serde(default)]
     pub meta: serde_json::Value,
@@ -66,36 +66,77 @@ pub enum BotState {
     Starting,
 }
 
-// ─── Agent Engine Events (CLI 进程输出) ───
+// ─── Agent Engine Events (Claude Code stream-json 输出) ───
+//
+// Claude Code 的 --output-format stream-json 实际格式:
+//   {"type":"system","subtype":"init","cwd":"...","session_id":"...","tools":[...]}
+//   {"type":"system","subtype":"hook_started","hook_name":"..."}
+//   {"type":"system","subtype":"hook_response","hook_name":"...","exit_code":0}
+//   {"type":"assistant","message":{"content":[{"type":"text","text":"Hello!"}],...}}
+//   {"type":"result","subtype":"success","result":"Hello!","duration_ms":1234}
+//
+// 注意: 这不是 Anthropic API 的 message_start/content_block_delta 格式!
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum AgentEvent {
+    /// 原始文本行（非JSON输出或stderr）
     #[serde(rename = "raw")]
     Raw { text: String },
-    #[serde(rename = "message_start")]
-    MessageStart { message: serde_json::Value },
-    #[serde(rename = "content_block_start")]
-    ContentBlockStart { index: u32, content_block: serde_json::Value },
-    #[serde(rename = "content_block_delta")]
-    ContentBlockDelta { index: u32, delta: serde_json::Value },
-    #[serde(rename = "content_block_stop")]
-    ContentBlockStop { index: u32 },
-    #[serde(rename = "message_stop")]
-    MessageStop { stop_reason: Option<String> },
+
+    /// 系统事件: init, hook_started, hook_response
+    #[serde(rename = "system")]
+    System {
+        subtype: Option<String>,
+        session_id: Option<String>,
+        #[serde(default)]
+        cwd: Option<String>,
+        #[serde(default)]
+        model: Option<String>,
+        #[serde(default)]
+        tools: Option<Vec<String>>,
+        #[serde(default)]
+        hook_name: Option<String>,
+        #[serde(default)]
+        exit_code: Option<i32>,
+    },
+
+    /// 助手回复: 包含完整 message 对象
+    #[serde(rename = "assistant")]
+    Assistant {
+        message: serde_json::Value,
+        session_id: Option<String>,
+    },
+
+    /// 用户消息回显
+    #[serde(rename = "user")]
+    User {
+        message: Option<serde_json::Value>,
+        session_id: Option<String>,
+    },
+
+    /// 最终结果
     #[serde(rename = "result")]
-    Result { result: serde_json::Value, subtype: Option<String> },
+    Result {
+        subtype: Option<String>,
+        result: Option<String>,
+        #[serde(default)]
+        is_error: Option<bool>,
+        #[serde(default)]
+        duration_ms: Option<u64>,
+        session_id: Option<String>,
+    },
+
+    /// SDK 控制响应 (init response, permission prompts, etc.)
+    #[serde(rename = "control_response")]
+    ControlResponse {
+        #[serde(default)]
+        response: Option<serde_json::Value>,
+    },
+
+    /// 未知事件类型
     #[serde(other)]
     Unknown,
-}
-
-// ─── Engine Capabilities ───
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EngineCapabilities {
-    pub name: String,
-    pub supports_streaming: bool,
-    pub supports_tools: bool,
 }
 
 // ─── API Request/Response ───
@@ -145,8 +186,6 @@ impl<T: Serialize> ApiResponse<T> {
 #[derive(Debug, Deserialize)]
 pub struct IngestEventsRequest {
     pub app_id: String,
-    #[serde(default)]
-    pub device_id: Option<String>,
     pub events: Vec<RawEvent>,
 }
 
