@@ -7,29 +7,23 @@ public struct ContentView: View {
 
     public var body: some View {
         TabView(selection: $selectedTab) {
-            ChatView()
-                .tabItem {
-                    Label("对话", systemImage: "bubble.left.and.bubble.right")
-                }
-                .tag(0)
-
             BotListView()
                 .tabItem {
                     Label("机器人", systemImage: "cpu")
                 }
-                .tag(1)
+                .tag(0)
 
             DashboardView()
                 .tabItem {
                     Label("仪表盘", systemImage: "chart.bar")
                 }
-                .tag(2)
+                .tag(1)
 
             SettingsView()
                 .tabItem {
                     Label("设置", systemImage: "gear")
                 }
-                .tag(3)
+                .tag(2)
         }
     }
 }

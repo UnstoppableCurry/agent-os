@@ -1,24 +1,28 @@
 import SwiftUI
 
 public struct ChatView: View {
+    let botId: String
+    let botName: String
+
     @State private var messages: [Message] = []
     @State private var inputText = ""
     @State private var isStreaming = false
 
-    public init() {}
+    public init(botId: String, botName: String) {
+        self.botId = botId
+        self.botName = botName
+    }
 
     public var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                messageList
-                Divider()
-                inputBar
-            }
-            .navigationTitle("对话")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
+        VStack(spacing: 0) {
+            messageList
+            Divider()
+            inputBar
         }
+        .navigationTitle(botName)
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
     }
 
     private var messageList: some View {
@@ -77,12 +81,12 @@ public struct ChatView: View {
         messages.append(assistantMsg)
 
         Task {
-            await APIClient.shared.sendMessage(text, botId: nil) { event in
+            await APIClient.shared.sendMessage(text, botId: botId) { event in
                 Task { @MainActor in
                     self.applyStreamEvent(event)
                 }
             }
-            isStreaming = false
+            await MainActor.run { isStreaming = false }
         }
     }
 
@@ -106,7 +110,7 @@ public struct ChatView: View {
             isStreaming = false
         case .error(let msg):
             if !messages.isEmpty, messages.last?.role == .assistant {
-                messages[messages.count - 1].content = "Error: \(msg)"
+                messages[messages.count - 1].content = "错误: \(msg)"
             }
             isStreaming = false
         default:

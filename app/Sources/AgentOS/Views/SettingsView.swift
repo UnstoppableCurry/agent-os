@@ -1,7 +1,7 @@
 import SwiftUI
 
 public struct SettingsView: View {
-    @AppStorage("serverURL") private var serverURL = "http://localhost:3000"
+    @AppStorage("serverURL") private var serverURL = "http://127.0.0.1:3000"
     @AppStorage("healthKitEnabled") private var healthKitEnabled = false
     @AppStorage("contactsEnabled") private var contactsEnabled = false
     @AppStorage("calendarEnabled") private var calendarEnabled = false
