@@ -1,0 +1,51 @@
+# === Rust ===
+target/
+Cargo.lock
+**/*.rs.bk
+
+# === Swift ===
+.build/
+.swiftpm/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.playground/
+Package.resolved
+
+# === Compiled ===
+*.o
+*.dylib
+*.so
+*.a
+*.d
+
+# === macOS ===
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# === IDE ===
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# === Environment / Secrets ===
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.cer
+secrets/
+
+# === Logs ===
+*.log
+logs/
+
+# === Memory stream data (large, generated) ===
+# memory/stream/ contents are runtime data
+# memory/crystal/ is generated
+# Keep bedrock/ and mirror/ templates in git
