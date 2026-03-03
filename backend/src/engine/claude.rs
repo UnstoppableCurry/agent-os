@@ -37,6 +37,9 @@ impl ClaudeCodeAdapter {
 impl AgentEngine for ClaudeCodeAdapter {
     async fn spawn(&self, config: &BotConfig) -> Result<ProcessHandle> {
         let mut args = vec![
+            "--output-format", "stream-json",
+            "--input-format", "stream-json",
+            "--verbose",
             "--dangerously-skip-permissions",
         ];
 
@@ -67,8 +70,12 @@ impl AgentEngine for ClaudeCodeAdapter {
     }
 
     async fn send(&self, handle: &ProcessHandle, message: &str) -> Result<()> {
-        // Send plain text to stdin (interactive mode)
-        handle.send_line(message).await
+        // stream-json input format
+        let msg = serde_json::json!({
+            "type": "user_message",
+            "content": message,
+        });
+        handle.send_line(&serde_json::to_string(&msg)?).await
     }
 
     fn subscribe(&self, handle: &ProcessHandle) -> broadcast::Receiver<AgentEvent> {

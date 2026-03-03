@@ -32,9 +32,6 @@ impl ProcessHandle {
 
         // Remove CLAUDECODE env to bypass nested session detection
         command.env_remove("CLAUDECODE");
-        // Disable color output for piped stdout
-        command.env("NO_COLOR", "1");
-        command.env("TERM", "dumb");
 
         let mut child = command.spawn()?;
         let pid = child.id().unwrap_or(0);
@@ -43,27 +40,37 @@ impl ProcessHandle {
         let stdout = child.stdout.take().expect("stdout not captured");
         let stderr = child.stderr.take().expect("stderr not captured");
 
-        // broadcast channel: 1024 buffer for raw output
+        // broadcast channel: 1024 buffer
         let (event_tx, _) = broadcast::channel::<AgentEvent>(1024);
         let tx = event_tx.clone();
         let tx2 = event_tx.clone();
 
-        // Stdout reader — send raw text lines
+        // Stdout reader — parse NDJSON, fallback to raw text
         tokio::spawn(async move {
             let reader = BufReader::new(stdout);
             let mut lines = reader.lines();
             while let Ok(Some(line)) = lines.next_line().await {
-                let clean = strip_ansi(&line);
-                if clean.trim().is_empty() {
+                if line.trim().is_empty() {
                     continue;
                 }
-                let event = AgentEvent::Raw { text: clean };
+                // Try JSON parse first (for stream-json mode)
+                let event = match serde_json::from_str::<AgentEvent>(&line) {
+                    Ok(event) => event,
+                    Err(_) => {
+                        // Fallback: raw text (strip ANSI codes)
+                        let clean = strip_ansi(&line);
+                        if clean.trim().is_empty() {
+                            continue;
+                        }
+                        AgentEvent::Raw { text: clean }
+                    }
+                };
                 let _ = tx.send(event);
             }
             info!("Process {} stdout reader exited", pid);
         });
 
-        // Stderr reader — also send as raw output (not just log)
+        // Stderr reader — send as raw text
         tokio::spawn(async move {
             let reader = BufReader::new(stderr);
             let mut lines = reader.lines();
@@ -122,7 +129,6 @@ fn strip_ansi(input: &str) -> String {
             match chars.peek() {
                 Some('[') => {
                     chars.next();
-                    // CSI sequence: skip until ASCII letter
                     while let Some(&ch) = chars.peek() {
                         chars.next();
                         if ch.is_ascii_alphabetic() {
@@ -132,7 +138,6 @@ fn strip_ansi(input: &str) -> String {
                 }
                 Some(']') => {
                     chars.next();
-                    // OSC sequence: skip until BEL or ST
                     while let Some(ch) = chars.next() {
                         if ch == '\x07' {
                             break;
@@ -146,12 +151,10 @@ fn strip_ansi(input: &str) -> String {
                     }
                 }
                 _ => {
-                    // Unknown escape, skip next char
                     chars.next();
                 }
             }
         } else if c == '\r' {
-            // Skip carriage return
             continue;
         } else {
             result.push(c);

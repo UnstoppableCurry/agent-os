@@ -4,7 +4,7 @@ public struct ChatView: View {
     let botId: String
     let botName: String
 
-    @State private var lines: [ConsoleLine] = []
+    @State private var lines: [TermLine] = []
     @State private var inputText = ""
     @State private var webSocketTask: URLSessionWebSocketTask?
     @State private var isConnected = false
@@ -16,7 +16,7 @@ public struct ChatView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            // Terminal output area
+            // ─── 终端输出区域 ───
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
@@ -31,10 +31,10 @@ public struct ChatView: View {
                     .padding(8)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .background(Color.black)
+                .background(Color(white: 0.1))
                 .onChange(of: lines.count) {
                     if let last = lines.last {
-                        withAnimation {
+                        withAnimation(.easeOut(duration: 0.1)) {
                             proxy.scrollTo(last.id, anchor: .bottom)
                         }
                     }
@@ -43,12 +43,12 @@ public struct ChatView: View {
 
             Divider()
 
-            // Input bar
+            // ─── 输入栏 ───
             HStack(spacing: 8) {
                 Text(">")
                     .font(.system(size: 13, design: .monospaced))
                     .foregroundStyle(.green)
-                TextField("输入...", text: $inputText)
+                TextField("输入消息...", text: $inputText)
                     .font(.system(size: 13, design: .monospaced))
                     .textFieldStyle(.plain)
                     .onSubmit { sendInput() }
@@ -63,12 +63,14 @@ public struct ChatView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Color.black)
+            .background(Color(white: 0.1))
         }
         .navigationTitle(botName)
         .onAppear { connectWebSocket() }
         .onDisappear { disconnectWebSocket() }
     }
+
+    // MARK: - WebSocket
 
     private func connectWebSocket() {
         let serverURL = UserDefaults.standard.string(forKey: "serverURL") ?? "http://127.0.0.1:3000"
@@ -87,17 +89,19 @@ public struct ChatView: View {
         webSocketTask = task
         isConnected = true
 
-        appendLine("已连接到 \(botName)")
-        receiveMessages()
+        appendLine("✅ 已连接到 \(botName)")
+        appendLine("输入消息开始对话\n")
+        receiveLoop()
     }
 
-    private func receiveMessages() {
+    private func receiveLoop() {
         webSocketTask?.receive { result in
             switch result {
             case .success(let message):
                 Task { @MainActor in
                     switch message {
                     case .string(let text):
+                        // Backend sends plain text — display directly
                         appendLine(text)
                     case .data(let data):
                         if let text = String(data: data, encoding: .utf8) {
@@ -106,13 +110,12 @@ public struct ChatView: View {
                     @unknown default:
                         break
                     }
-                    // Continue receiving
-                    receiveMessages()
+                    receiveLoop()
                 }
             case .failure(let error):
                 Task { @MainActor in
                     if isConnected {
-                        appendLine("[断开] \(error.localizedDescription)")
+                        appendLine("[断开连接] \(error.localizedDescription)")
                         isConnected = false
                     }
                 }
@@ -121,9 +124,12 @@ public struct ChatView: View {
     }
 
     private func sendInput() {
-        guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        let text = inputText
+        let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
         inputText = ""
+
+        // Echo user input
+        appendLine("> \(text)")
 
         let wsMessage = URLSessionWebSocketTask.Message.string(text)
         webSocketTask?.send(wsMessage) { error in
@@ -143,12 +149,11 @@ public struct ChatView: View {
 
     @MainActor
     private func appendLine(_ text: String) {
-        let line = ConsoleLine(text: text)
-        lines.append(line)
+        lines.append(TermLine(text: text))
     }
 }
 
-struct ConsoleLine: Identifiable {
+struct TermLine: Identifiable {
     let id = UUID()
-    var text: String
+    let text: String
 }
