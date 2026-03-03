@@ -1,0 +1,53 @@
+# 健康传感器配置
+# AgentOS - 健康数据采集
+
+source: apple_health
+enabled: true
+
+# HealthKit 数据类型
+data_types:
+  steps:
+    enabled: true
+    frequency: hourly
+    unit: count
+  heart_rate:
+    enabled: true
+    frequency: continuous
+    unit: bpm
+  sleep:
+    enabled: true
+    frequency: daily
+    unit: hours
+  active_energy:
+    enabled: true
+    frequency: hourly
+    unit: kcal
+  weight:
+    enabled: true
+    frequency: manual
+    unit: kg
+  blood_oxygen:
+    enabled: false
+    frequency: daily
+    unit: percent
+
+# 推断规则触发阈值
+thresholds:
+  sleep_min_hours: 6
+  sleep_warning_consecutive_days: 3
+  steps_min_daily: 6000
+  sedentary_max_hours: 10
+  sedentary_warning_consecutive_days: 3
+
+# 吸烟追踪 (手动记录)
+smoking:
+  enabled: true
+  tracking_mode: manual  # manual | sensor
+  goal: quit
+  target_date: "2025-06-30"  # 原计划日期，已延期
+
+# 体重目标
+weight_goal:
+  target: 75  # kg
+  current: null  # 待填入
+  deadline: "2026-12-31"

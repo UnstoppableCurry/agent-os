@@ -1,0 +1,42 @@
+# 联系人传感器配置
+# AgentOS - 社交关系数据
+
+source: contacts_app
+enabled: true
+
+# 数据采集
+data_types:
+  interaction_frequency:
+    enabled: true
+    sources:
+      - imessage
+      - wechat
+      - phone_calls
+    frequency: daily
+    privacy: count_only  # 只统计频次，不记录内容
+
+  relationship_tags:
+    enabled: true
+    categories:
+      - family      # 家人
+      - close       # 亲密朋友
+      - colleague   # 同事
+      - tech_peer   # 技术同行
+      - mentor      # 导师
+      - acquaintance # 普通认识
+
+# 社交健康指标
+thresholds:
+  # 如果核心圈联系人超过 7 天无互动，提醒
+  core_circle_inactive_days: 7
+  # 如果一周内社交互动少于这个数，提醒
+  min_weekly_interactions: 5
+  # 深度对话（>30分钟）每周至少
+  min_weekly_deep_conversations: 1
+
+# 隐私规则
+privacy:
+  store_content: false
+  store_names: true
+  store_frequency: true
+  anonymize_in_reports: false

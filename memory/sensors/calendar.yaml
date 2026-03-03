@@ -1,0 +1,54 @@
+# 日历传感器配置
+# AgentOS - 时间管理数据
+
+source: apple_calendar
+enabled: true
+
+# 数据采集
+data_types:
+  events:
+    enabled: true
+    calendars:
+      - work        # 工作日历
+      - personal    # 个人日历
+      - health      # 健康/运动
+    frequency: realtime
+
+  time_blocks:
+    enabled: true
+    categories:
+      - deep_work   # 深度工作
+      - meeting     # 会议
+      - exercise    # 运动
+      - social      # 社交
+      - learning    # 学习
+      - rest        # 休息
+      - commute     # 通勤
+
+# 时间分析
+analysis:
+  # 每日时间分配统计
+  daily_breakdown: true
+  # 深度工作时间追踪
+  deep_work_tracking: true
+  # 会议负担分析
+  meeting_load: true
+
+# 阈值
+thresholds:
+  # 深度工作最少时间（小时/天）
+  min_daily_deep_work_hours: 2
+  # 会议上限（小时/天）
+  max_daily_meeting_hours: 4
+  # 无休息连续工作上限（小时）
+  max_continuous_work_hours: 3
+
+# 提醒规则
+reminders:
+  # 深度工作开始前提醒关闭通知
+  deep_work_dnd: true
+  # 连续工作提醒休息
+  break_reminder: true
+  # 就寝提醒
+  bedtime_reminder: true
+  bedtime_hour: 23

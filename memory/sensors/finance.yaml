@@ -1,0 +1,72 @@
+# 财务传感器配置
+# AgentOS - 财务数据追踪
+
+source: manual  # manual | bank_api | accounting_app
+enabled: true
+
+# 数据采集
+data_types:
+  income:
+    enabled: true
+    frequency: monthly
+    sources:
+      - salary       # 工资
+      - side_project # 副业收入
+      - passive      # 被动收入
+      - investment   # 投资收益
+
+  expense:
+    enabled: true
+    frequency: daily
+    categories:
+      - fixed:       # 固定支出
+          - rent           # 房租
+          - car_loan       # 车贷
+          - insurance      # 保险
+      - necessary:   # 必要支出
+          - food           # 餐饮
+          - transport      # 交通
+          - utilities      # 水电燃气
+      - investment:  # 投资型支出
+          - education      # 教育/课程
+          - tools          # 工具/设备（认知投资）
+          - health         # 健康
+      - emotional:   # 情绪消费
+          - impulse        # 冲动购买
+          - entertainment  # 娱乐
+          - luxury         # 非必要奢侈品
+
+  savings:
+    enabled: true
+    frequency: monthly
+    types:
+      - bank_deposit  # 银行存款
+      - fund          # 基金定投
+      - emergency     # 应急资金
+
+# 预算规则
+budgets:
+  monthly_total: 13788  # 优化后目标
+  emotional_limit: 3000 # 情绪消费上限
+  investment_budget: 2000 # 认知投资预算
+
+# 阈值和警报
+thresholds:
+  # 情绪消费占比超过此值触发预警
+  emotional_ratio_warning: 0.30
+  # 月消费超过预算此比例触发预警
+  budget_usage_warning: 0.80
+  # 连续 N 个月储蓄率低于 20% 触发警报
+  low_savings_months: 3
+  low_savings_rate: 0.20
+
+# 目标追踪
+goals:
+  car_loan_payoff: "2026-06"
+  emergency_fund: 54000  # 6个月支出
+  savings_50w: "2030-12"
+
+# 隐私
+privacy:
+  precision: hundred  # 精确到百元
+  store_merchant: false  # 不记录商家名

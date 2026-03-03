@@ -1,0 +1,65 @@
+# Git 传感器配置
+# AgentOS - 代码活动追踪
+
+source: git_hooks
+enabled: true
+
+# 监控的仓库
+repositories:
+  - name: agent-os
+    path: /Users/wangtianxin/projects/agent-os
+    enabled: true
+  - name: claude-code-api
+    path: /Users/wangtianxin/Desktop/claude/claude/claude-code-api
+    enabled: true
+  - name: VideoKnowledge
+    path: /Users/wangtianxin/Desktop/视频知识/VideoKnowledge
+    enabled: true
+
+# 数据采集
+data_types:
+  commits:
+    enabled: true
+    track:
+      - timestamp
+      - message
+      - files_changed
+      - lines_added
+      - lines_removed
+      - repository
+
+  coding_sessions:
+    enabled: true
+    # 两次提交间隔 > 2 小时视为新 session
+    session_gap_minutes: 120
+
+  languages:
+    enabled: true
+    # 追踪代码语言分布
+
+# 分析规则
+analysis:
+  # 每日编码统计
+  daily_stats: true
+  # 项目活跃度
+  project_activity: true
+  # 编码时间分布（几点最活跃）
+  time_distribution: true
+  # 连续编码天数 (streak)
+  coding_streak: true
+
+# 阈值
+thresholds:
+  # 项目无更新超过此天数标记"停滞"
+  project_stale_days: 14
+  # 单日编码超过此小时标记"过度工作"
+  max_daily_coding_hours: 12
+  # 周末编码超过此小时发出休息提醒
+  weekend_coding_warning_hours: 8
+
+# 项目健康指标
+project_health:
+  # 有外部反馈（issue/PR/star）标记"价值连接激活"
+  external_feedback_tracking: true
+  # 同时活跃项目数量限制
+  max_active_projects: 3

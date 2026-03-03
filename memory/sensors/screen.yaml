@@ -1,0 +1,65 @@
+# 屏幕时间传感器配置
+# AgentOS - 数字生活追踪
+
+source: screen_time_api
+enabled: true
+
+# 数据采集
+data_types:
+  app_usage:
+    enabled: true
+    frequency: hourly
+    categories:
+      - coding:         # 编程
+          apps: [Xcode, VSCode, Terminal, Cursor, Claude]
+      - learning:       # 学习
+          apps: [Safari, Books, Kindle]
+      - social:         # 社交
+          apps: [WeChat, iMessage, Telegram]
+      - entertainment:  # 娱乐
+          apps: [Bilibili, YouTube, Netflix, Douyin]
+      - shopping:       # 购物
+          apps: [Taobao, JD, PDD]
+      - productivity:   # 生产力
+          apps: [Notion, Bear, Calendar, Reminders]
+
+  pickups:
+    enabled: true
+    frequency: daily
+    # 手机拿起次数
+
+  notifications:
+    enabled: true
+    frequency: daily
+    # 通知数量
+
+# 分析规则
+analysis:
+  # 生产性 vs 消费性时间比
+  productive_ratio: true
+  # 深夜使用时间 (23:00 - 06:00)
+  late_night_usage: true
+  # 购物类 App 使用时长
+  shopping_time: true
+
+# 阈值
+thresholds:
+  # 每日娱乐类上限（分钟）
+  max_entertainment_minutes: 120
+  # 每日社交类上限（分钟）
+  max_social_minutes: 60
+  # 购物类 App 使用时触发消费预警
+  shopping_app_warning: true
+  # 深夜 23 点后手机使用提醒
+  late_night_warning_hour: 23
+  # 每日拿起手机上限次数
+  max_daily_pickups: 100
+
+# 数字健康规则
+digital_health:
+  # 编码时禁用社交通知
+  coding_focus_mode: true
+  # 就寝前 30 分钟降低蓝光
+  bedtime_wind_down: true
+  # 购物类 App 打开时温和提醒
+  shopping_reminder: "需要问自己：我现在真正需要什么？"
