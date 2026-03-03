@@ -1,13 +1,15 @@
 import SwiftUI
 
-struct BotListView: View {
+public struct BotListView: View {
     @State private var bots: [Bot] = [
         Bot(name: "General Assistant", engine: .claude),
         Bot(name: "Code Helper", engine: .kimi),
     ]
     @State private var showCreateSheet = false
 
-    var body: some View {
+    public init() {}
+
+    public var body: some View {
         NavigationStack {
             List {
                 ForEach(bots) { bot in
@@ -51,7 +53,6 @@ struct BotRow: View {
             Circle()
                 .fill(statusColor)
                 .frame(width: 10, height: 10)
-
             VStack(alignment: .leading, spacing: 2) {
                 Text(bot.name)
                     .font(.headline)
@@ -59,9 +60,7 @@ struct BotRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-
             Spacer()
-
             Button(bot.status == .running ? "Stop" : "Start") {
                 onToggle()
             }
@@ -98,7 +97,9 @@ struct CreateBotSheet: View {
                 }
             }
             .navigationTitle("New Bot")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -115,8 +116,4 @@ struct CreateBotSheet: View {
         }
         .presentationDetents([.medium])
     }
-}
-
-#Preview {
-    BotListView()
 }

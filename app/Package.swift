@@ -10,7 +10,8 @@ let package = Package(
     targets: [
         .target(
             name: "AgentOS",
-            path: "Sources/AgentOS"
+            path: "Sources/AgentOS",
+            exclude: ["AgentOSApp.swift"]  // Exclude @main for library builds
         )
     ]
 )

@@ -1,12 +1,13 @@
 import SwiftUI
 
-struct ChatView: View {
+public struct ChatView: View {
     @State private var messages: [Message] = []
     @State private var inputText = ""
     @State private var isStreaming = false
-    @State private var webSocket = WebSocketClient()
 
-    var body: some View {
+    public init() {}
+
+    public var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 messageList
@@ -14,10 +15,9 @@ struct ChatView: View {
                 inputBar
             }
             .navigationTitle("Chat")
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-        }
-        .onAppear {
-            webSocket.onEvent = handleStreamEvent
+            #endif
         }
     }
 
@@ -48,7 +48,7 @@ struct ChatView: View {
                 .textFieldStyle(.plain)
                 .lineLimit(1...5)
                 .padding(10)
-                .background(Color(.systemGray6))
+                .background(Color.gray.opacity(0.15))
                 .clipShape(RoundedRectangle(cornerRadius: 20))
 
             Button {
@@ -78,46 +78,39 @@ struct ChatView: View {
 
         Task {
             await APIClient.shared.sendMessage(text, botId: nil) { event in
-                handleStreamEvent(event)
+                Task { @MainActor in
+                    self.applyStreamEvent(event)
+                }
             }
             isStreaming = false
         }
     }
 
-    private func handleStreamEvent(_ event: StreamEvent) {
-        Task { @MainActor in
-            switch event {
-            case .contentDelta(let text):
-                if var last = messages.last, last.role == .assistant && last.type == .text {
-                    last.content += text
-                    messages[messages.count - 1] = last
-                }
-
-            case .thinking(let text):
-                let thinkingMsg = Message(role: .assistant, content: text, type: .thinking)
-                messages.insert(thinkingMsg, at: messages.count - 1)
-
-            case .toolUse(_, let name, let input):
-                let toolMsg = Message(role: .assistant, content: input, type: .toolUse, toolName: name)
-                messages.insert(toolMsg, at: messages.count - 1)
-
-            case .toolResult(_, let content):
-                let resultMsg = Message(role: .assistant, content: content, type: .toolResult)
-                messages.insert(resultMsg, at: messages.count - 1)
-
-            case .messageStop:
-                isStreaming = false
-
-            case .error(let msg):
-                if var last = messages.last, last.role == .assistant {
-                    last.content = "Error: \(msg)"
-                    messages[messages.count - 1] = last
-                }
-                isStreaming = false
-
-            default:
-                break
+    @MainActor
+    private func applyStreamEvent(_ event: StreamEvent) {
+        switch event {
+        case .contentDelta(let text):
+            if !messages.isEmpty, messages.last?.role == .assistant, messages.last?.type == .text {
+                messages[messages.count - 1].content += text
             }
+        case .thinking(let text):
+            let thinkingMsg = Message(role: .assistant, content: text, type: .thinking)
+            messages.insert(thinkingMsg, at: max(0, messages.count - 1))
+        case .toolUse(_, let name, let input):
+            let toolMsg = Message(role: .assistant, content: input, type: .toolUse, toolName: name)
+            messages.insert(toolMsg, at: max(0, messages.count - 1))
+        case .toolResult(_, let content):
+            let resultMsg = Message(role: .assistant, content: content, type: .toolResult)
+            messages.insert(resultMsg, at: max(0, messages.count - 1))
+        case .messageStop:
+            isStreaming = false
+        case .error(let msg):
+            if !messages.isEmpty, messages.last?.role == .assistant {
+                messages[messages.count - 1].content = "Error: \(msg)"
+            }
+            isStreaming = false
+        default:
+            break
         }
     }
 }
@@ -139,7 +132,6 @@ struct MessageBubble: View {
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .italic()
-
                 case .toolUse:
                     Label(message.toolName ?? "Tool", systemImage: "wrench")
                         .font(.caption.bold())
@@ -147,7 +139,6 @@ struct MessageBubble: View {
                     Text(message.content)
                         .font(.caption)
                         .fontDesign(.monospaced)
-
                 case .toolResult:
                     Label("Result", systemImage: "checkmark.circle")
                         .font(.caption)
@@ -156,7 +147,6 @@ struct MessageBubble: View {
                         .font(.caption)
                         .fontDesign(.monospaced)
                         .lineLimit(5)
-
                 case .text:
                     Text(message.content)
                 }
@@ -171,15 +161,11 @@ struct MessageBubble: View {
 
     private var backgroundColor: Color {
         switch message.type {
-        case .thinking: return Color(.systemGray5)
+        case .thinking: return Color.gray.opacity(0.2)
         case .toolUse: return Color.orange.opacity(0.1)
         case .toolResult: return Color.green.opacity(0.1)
         case .text:
-            return message.role == .user ? .blue : Color(.systemGray6)
+            return message.role == .user ? .blue : Color.gray.opacity(0.15)
         }
     }
-}
-
-#Preview {
-    ChatView()
 }

@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct SettingsView: View {
+public struct SettingsView: View {
     @AppStorage("serverURL") private var serverURL = "http://localhost:3000"
     @AppStorage("healthKitEnabled") private var healthKitEnabled = false
     @AppStorage("contactsEnabled") private var contactsEnabled = false
@@ -8,7 +8,9 @@ struct SettingsView: View {
     @AppStorage("locationEnabled") private var locationEnabled = false
     @AppStorage("screenTimeEnabled") private var screenTimeEnabled = false
 
-    var body: some View {
+    public init() {}
+
+    public var body: some View {
         NavigationStack {
             Form {
                 serverSection
@@ -23,14 +25,14 @@ struct SettingsView: View {
     private var serverSection: some View {
         Section("Server") {
             TextField("Server URL", text: $serverURL)
+                #if os(iOS)
                 .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
                 .keyboardType(.URL)
+                #endif
+                .autocorrectionDisabled()
 
             Button("Test Connection") {
-                Task {
-                    await testConnection()
-                }
+                Task { await testConnection() }
             }
         }
     }
@@ -50,9 +52,7 @@ struct SettingsView: View {
             NavigationLink("Data Collected") {
                 PrivacyDetailView()
             }
-            Button("Clear Local Data", role: .destructive) {
-                // Clear cached data
-            }
+            Button("Clear Local Data", role: .destructive) {}
         }
     }
 
@@ -65,8 +65,7 @@ struct SettingsView: View {
     }
 
     private func testConnection() async {
-        let health = await APIClient.shared.getHealth()
-        // TODO: Show result to user
+        let _ = await APIClient.shared.getHealth()
     }
 }
 
@@ -89,8 +88,4 @@ struct PrivacyDetailView: View {
         }
         .navigationTitle("Privacy")
     }
-}
-
-#Preview {
-    SettingsView()
 }

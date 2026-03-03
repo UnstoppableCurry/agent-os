@@ -1,26 +1,25 @@
 import Foundation
 
-enum BotEngine: String, Codable, CaseIterable {
+public enum BotEngine: String, Codable, CaseIterable, Sendable {
     case claude
     case kimi
     case gemini
 }
 
-enum BotStatus: String, Codable {
+public enum BotState: String, Codable, Sendable {
     case running
     case stopped
     case error
 }
 
-@Observable
-final class Bot: Identifiable, Codable {
-    let id: UUID
-    var name: String
-    var engine: BotEngine
-    var status: BotStatus
-    let createdAt: Date
+public struct Bot: Identifiable, Sendable {
+    public let id: UUID
+    public var name: String
+    public var engine: BotEngine
+    public var status: BotState
+    public let createdAt: Date
 
-    init(name: String, engine: BotEngine) {
+    public init(name: String, engine: BotEngine) {
         self.id = UUID()
         self.name = name
         self.engine = engine
@@ -28,7 +27,7 @@ final class Bot: Identifiable, Codable {
         self.createdAt = Date()
     }
 
-    var statusColor: String {
+    public var statusColor: String {
         switch status {
         case .running: return "green"
         case .stopped: return "gray"

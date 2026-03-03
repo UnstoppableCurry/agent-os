@@ -1,27 +1,27 @@
 import Foundation
 
-enum MessageRole: String, Codable {
+public enum MessageRole: String, Codable, Sendable {
     case user
     case assistant
     case system
 }
 
-enum MessageType: String, Codable {
+public enum MessageType: String, Codable, Sendable {
     case text
     case thinking
     case toolUse = "tool_use"
     case toolResult = "tool_result"
 }
 
-struct Message: Identifiable, Codable {
-    let id: UUID
-    let role: MessageRole
-    var content: String
-    let type: MessageType
-    let timestamp: Date
-    var toolName: String?
+public struct Message: Identifiable, Codable, Sendable {
+    public let id: UUID
+    public let role: MessageRole
+    public var content: String
+    public let type: MessageType
+    public let timestamp: Date
+    public var toolName: String?
 
-    init(role: MessageRole, content: String, type: MessageType = .text, toolName: String? = nil) {
+    public init(role: MessageRole, content: String, type: MessageType = .text, toolName: String? = nil) {
         self.id = UUID()
         self.role = role
         self.content = content
