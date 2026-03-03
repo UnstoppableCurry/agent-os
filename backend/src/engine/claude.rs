@@ -1,17 +1,37 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use tokio::sync::mpsc;
+use tokio::sync::broadcast;
 use tracing::info;
 
 use crate::types::{AgentEvent, BotConfig, EngineCapabilities};
 
 use super::{AgentEngine, ProcessHandle};
 
-pub struct ClaudeCodeAdapter;
+pub struct ClaudeCodeAdapter {
+    claude_path: String,
+}
 
 impl ClaudeCodeAdapter {
     pub fn new() -> Self {
-        Self
+        // Use env var or search common locations
+        let claude_path = std::env::var("CLAUDE_PATH").unwrap_or_else(|_| {
+            // Try to find claude in known locations
+            let home = std::env::var("HOME").unwrap_or_default();
+            let candidates = [
+                format!("{}/npm-global/bin/claude", home),
+                format!("{}/.npm-global/bin/claude", home),
+                "/usr/local/bin/claude".to_string(),
+                "claude".to_string(), // fallback to PATH
+            ];
+            for c in &candidates {
+                if std::path::Path::new(c).exists() {
+                    return c.clone();
+                }
+            }
+            "claude".to_string()
+        });
+        info!("Claude binary path: {}", claude_path);
+        Self { claude_path }
     }
 }
 
@@ -46,15 +66,14 @@ impl AgentEngine for ClaudeCodeAdapter {
             ("CLAUDE_CODE_DISABLE_BACKGROUND_TASKS", "1"),
         ];
 
-        info!("Spawning Claude Code: claude {}", args.join(" "));
-        let handle = ProcessHandle::spawn("claude", &args, &env).await?;
+        info!("Spawning Claude Code: {} {}", self.claude_path, args.join(" "));
+        let handle = ProcessHandle::spawn(&self.claude_path, &args, &env).await?;
         info!("Claude Code process started, pid={}", handle.pid);
 
         Ok(handle)
     }
 
     async fn send(&self, handle: &ProcessHandle, message: &str) -> Result<()> {
-        // stream-json input format expects JSON messages
         let msg = serde_json::json!({
             "type": "user_message",
             "content": message,
@@ -62,10 +81,8 @@ impl AgentEngine for ClaudeCodeAdapter {
         handle.send_line(&serde_json::to_string(&msg)?).await
     }
 
-    fn subscribe(&self, handle: &ProcessHandle) -> Result<mpsc::Receiver<AgentEvent>> {
-        handle
-            .take_event_rx()
-            .ok_or_else(|| anyhow::anyhow!("Event receiver already taken"))
+    fn subscribe(&self, handle: &ProcessHandle) -> broadcast::Receiver<AgentEvent> {
+        handle.subscribe()
     }
 
     async fn stop(&self, handle: &ProcessHandle) -> Result<()> {

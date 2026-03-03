@@ -1,9 +1,13 @@
 import Foundation
+#if canImport(HealthKit)
 import HealthKit
+#endif
 
 @Observable
 final class HealthSensor {
+    #if canImport(HealthKit)
     private let store = HKHealthStore()
+    #endif
     var isAuthorized = false
 
     var steps: Int = 0
@@ -18,6 +22,7 @@ final class HealthSensor {
     }
 
     func requestAuthorization() async -> Bool {
+        #if canImport(HealthKit)
         guard HKHealthStore.isHealthDataAvailable() else { return false }
 
         let readTypes: Set<HKObjectType> = [
@@ -34,9 +39,13 @@ final class HealthSensor {
             print("HealthKit auth failed: \(error)")
             return false
         }
+        #else
+        return false
+        #endif
     }
 
     func fetchTodaySteps() async -> Int {
+        #if canImport(HealthKit)
         let type = HKQuantityType(.stepCount)
         let start = Calendar.current.startOfDay(for: Date())
         let predicate = HKQuery.predicateForSamples(withStart: start, end: Date())
@@ -59,9 +68,13 @@ final class HealthSensor {
             print("Steps fetch failed: \(error)")
             return 0
         }
+        #else
+        return 0
+        #endif
     }
 
     func fetchLatestHeartRate() async -> Double {
+        #if canImport(HealthKit)
         let type = HKQuantityType(.heartRate)
         let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
 
@@ -84,9 +97,13 @@ final class HealthSensor {
             print("Heart rate fetch failed: \(error)")
             return 0
         }
+        #else
+        return 0
+        #endif
     }
 
     func fetchSleepHours() async -> Double {
+        #if canImport(HealthKit)
         let type = HKCategoryType(.sleepAnalysis)
         let start = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
         let predicate = HKQuery.predicateForSamples(withStart: start, end: Date())
@@ -111,6 +128,9 @@ final class HealthSensor {
             print("Sleep fetch failed: \(error)")
             return 0
         }
+        #else
+        return 0
+        #endif
     }
 
     func toLifeEvents() -> [LifeEvent] {

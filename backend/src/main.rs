@@ -6,13 +6,17 @@ mod sensor;
 mod skill;
 mod types;
 
+use std::convert::Infallible;
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::extract::ws::WebSocketUpgrade;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
+use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
 use axum::{Json, Router, routing::{get, post}};
+use tokio_stream::StreamExt;
 use tower_http::cors::CorsLayer;
 use tracing::info;
 
@@ -32,7 +36,7 @@ async fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "agent_os=info,tower_http=info".parse().unwrap()),
+                .unwrap_or_else(|_| "agent_os=debug,tower_http=info".parse().unwrap()),
         )
         .init();
 
@@ -98,15 +102,48 @@ async fn bots_stop(State(s): State<AppState>, Path(id): Path<uuid::Uuid>) -> Res
     }
 }
 
+/// Send message → returns SSE stream of agent events
 async fn bots_send(
     State(s): State<AppState>,
     Path(id): Path<uuid::Uuid>,
     Json(req): Json<types::SendMessageRequest>,
 ) -> Response {
-    match s.bot_manager.send_message(id, &req.content).await {
-        Ok(_) => Json(types::ApiResponse::ok("sent")).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(types::ApiResponse::<()>::err(e.to_string()))).into_response(),
-    }
+    let mut event_rx = match s.bot_manager.send_message(id, &req.content).await {
+        Ok(rx) => rx,
+        Err(e) => {
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(types::ApiResponse::<()>::err(e.to_string()))).into_response();
+        }
+    };
+
+    let stream = async_stream::stream! {
+        loop {
+            match event_rx.recv().await {
+                Ok(event) => {
+                    let json = serde_json::to_string(&event).unwrap_or_default();
+                    yield Ok::<_, Infallible>(Event::default().data(json));
+
+                    // Stop streaming after message_stop
+                    if matches!(event, types::AgentEvent::MessageStop { .. }) {
+                        yield Ok(Event::default().data("[DONE]"));
+                        break;
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    let msg = format!("{{\"warning\":\"lagged {} events\"}}", n);
+                    yield Ok(Event::default().data(msg));
+                    continue;
+                }
+                Err(_) => {
+                    yield Ok(Event::default().data("[DONE]"));
+                    break;
+                }
+            }
+        }
+    };
+
+    Sse::new(stream)
+        .keep_alive(KeepAlive::new().interval(Duration::from_secs(15)))
+        .into_response()
 }
 
 // ─── WebSocket ───

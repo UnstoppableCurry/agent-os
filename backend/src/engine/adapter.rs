@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use tokio::sync::mpsc;
+use tokio::sync::broadcast;
 
 use crate::types::{AgentEvent, BotConfig, EngineCapabilities};
 
@@ -15,7 +15,7 @@ pub trait AgentEngine: Send + Sync {
     async fn send(&self, handle: &ProcessHandle, message: &str) -> Result<()>;
 
     /// Subscribe to events from the process stdout
-    fn subscribe(&self, handle: &ProcessHandle) -> Result<mpsc::Receiver<AgentEvent>>;
+    fn subscribe(&self, handle: &ProcessHandle) -> broadcast::Receiver<AgentEvent>;
 
     /// Stop the process
     async fn stop(&self, handle: &ProcessHandle) -> Result<()>;

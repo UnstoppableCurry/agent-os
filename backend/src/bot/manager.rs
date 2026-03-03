@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use chrono::Utc;
-use tokio::sync::{Mutex, RwLock, mpsc};
+use tokio::sync::{Mutex, RwLock, broadcast};
 use tracing::{info, error};
 use uuid::Uuid;
 
@@ -14,7 +14,6 @@ struct BotInstance {
     config: BotConfig,
     status: BotStatus,
     handle: Option<ProcessHandle>,
-    subscribers: Vec<mpsc::Sender<AgentEvent>>,
 }
 
 pub struct BotManager {
@@ -82,7 +81,6 @@ impl BotManager {
             config,
             status: final_status.clone(),
             handle: Some(handle),
-            subscribers: vec![],
         };
 
         self.bots.write().await.insert(id, Arc::new(Mutex::new(instance)));
@@ -106,7 +104,8 @@ impl BotManager {
         Some(bot.lock().await.status.clone())
     }
 
-    pub async fn send_message(&self, id: Uuid, content: &str) -> Result<()> {
+    /// Send a message and return a broadcast receiver for streaming events
+    pub async fn send_message(&self, id: Uuid, content: &str) -> Result<broadcast::Receiver<AgentEvent>> {
         let bots = self.bots.read().await;
         let bot = bots.get(&id)
             .ok_or_else(|| anyhow::anyhow!("Bot not found"))?;
@@ -121,41 +120,29 @@ impl BotManager {
         let engine = self.engines.get(engine_key).unwrap();
 
         if let Some(ref handle) = instance.handle {
+            // Subscribe BEFORE sending so we don't miss events
+            let rx = engine.subscribe(handle);
             engine.send(handle, content).await?;
             instance.status.message_count += 1;
+            Ok(rx)
         } else {
-            return Err(anyhow::anyhow!("Bot process not running"));
+            Err(anyhow::anyhow!("Bot process not running"))
         }
-
-        Ok(())
     }
 
-    pub async fn subscribe(&self, id: Uuid) -> Result<mpsc::Receiver<AgentEvent>> {
+    /// Subscribe to bot events (for WebSocket)
+    pub async fn subscribe(&self, id: Uuid) -> Result<broadcast::Receiver<AgentEvent>> {
         let bots = self.bots.read().await;
         let bot = bots.get(&id)
             .ok_or_else(|| anyhow::anyhow!("Bot not found"))?;
 
-        let mut instance = bot.lock().await;
+        let instance = bot.lock().await;
 
-        // Create a new channel for this subscriber
-        let (tx, rx) = mpsc::channel::<AgentEvent>(256);
-        instance.subscribers.push(tx.clone());
-
-        // If we have a process handle with events, forward them
         if let Some(ref handle) = instance.handle {
-            if let Some(mut event_rx) = handle.take_event_rx() {
-                let subs = instance.subscribers.clone();
-                tokio::spawn(async move {
-                    while let Some(event) = event_rx.recv().await {
-                        for sub in &subs {
-                            let _ = sub.send(event.clone()).await;
-                        }
-                    }
-                });
-            }
+            Ok(handle.subscribe())
+        } else {
+            Err(anyhow::anyhow!("Bot process not running"))
         }
-
-        Ok(rx)
     }
 
     pub async fn stop(&self, id: Uuid) -> Result<()> {

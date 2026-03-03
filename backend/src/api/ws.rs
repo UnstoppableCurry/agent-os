@@ -24,16 +24,25 @@ pub async fn handle_socket_inner(mut socket: WebSocket, mgr: Arc<BotManager>, bo
 
     loop {
         tokio::select! {
-            Some(event) = event_rx.recv() => {
-                let json = match serde_json::to_string(&event) {
-                    Ok(j) => j,
-                    Err(e) => {
-                        error!("Failed to serialize event: {}", e);
+            result = event_rx.recv() => {
+                match result {
+                    Ok(event) => {
+                        let json = match serde_json::to_string(&event) {
+                            Ok(j) => j,
+                            Err(e) => {
+                                error!("Failed to serialize event: {}", e);
+                                continue;
+                            }
+                        };
+                        if socket.send(Message::Text(json.into())).await.is_err() {
+                            break;
+                        }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                        info!("WebSocket subscriber lagged {} messages", n);
                         continue;
                     }
-                };
-                if socket.send(Message::Text(json.into())).await.is_err() {
-                    break;
+                    Err(_) => break,
                 }
             }
             Some(msg) = recv_msg(&mut socket) => {

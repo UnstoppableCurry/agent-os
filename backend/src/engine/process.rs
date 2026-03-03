@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{broadcast, Mutex};
 use tracing::{error, info, warn};
 
 use crate::types::AgentEvent;
@@ -12,9 +12,7 @@ use crate::types::AgentEvent;
 pub struct ProcessHandle {
     pub pid: u32,
     stdin: Arc<Mutex<tokio::process::ChildStdin>>,
-    event_tx: mpsc::Sender<AgentEvent>,
-    event_rx: Arc<Mutex<Option<mpsc::Receiver<AgentEvent>>>>,
-    kill_tx: mpsc::Sender<()>,
+    event_tx: broadcast::Sender<AgentEvent>,
 }
 
 impl ProcessHandle {
@@ -32,6 +30,9 @@ impl ProcessHandle {
             command.env(k, v);
         }
 
+        // Remove CLAUDECODE env to bypass nested session detection
+        command.env_remove("CLAUDECODE");
+
         let mut child = command.spawn()?;
         let pid = child.id().unwrap_or(0);
 
@@ -39,55 +40,32 @@ impl ProcessHandle {
         let stdout = child.stdout.take().expect("stdout not captured");
         let stderr = child.stderr.take().expect("stderr not captured");
 
-        let (event_tx, event_rx) = mpsc::channel::<AgentEvent>(256);
-        let (kill_tx, mut kill_rx) = mpsc::channel::<()>(1);
-
+        // broadcast channel: 256 buffer, multiple subscribers
+        let (event_tx, _) = broadcast::channel::<AgentEvent>(256);
         let tx = event_tx.clone();
 
-        // Stdout reader - parse NDJSON events
+        // Stdout reader — parse NDJSON events
         tokio::spawn(async move {
             let reader = BufReader::new(stdout);
             let mut lines = reader.lines();
-            loop {
-                tokio::select! {
-                    line = lines.next_line() => {
-                        match line {
-                            Ok(Some(line)) => {
-                                if line.trim().is_empty() {
-                                    continue;
-                                }
-                                match serde_json::from_str::<AgentEvent>(&line) {
-                                    Ok(event) => {
-                                        if tx.send(event).await.is_err() {
-                                            break;
-                                        }
-                                    }
-                                    Err(_) => {
-                                        // Non-JSON line, try wrapping as result text
-                                        let event = AgentEvent::Result {
-                                            result: serde_json::json!({"text": line}),
-                                            subtype: Some("raw".to_string()),
-                                        };
-                                        let _ = tx.send(event).await;
-                                    }
-                                }
-                            }
-                            Ok(None) => break, // EOF
-                            Err(e) => {
-                                error!("stdout read error: {}", e);
-                                break;
-                            }
-                        }
-                    }
-                    _ = kill_rx.recv() => {
-                        break;
-                    }
+            while let Ok(Some(line)) = lines.next_line().await {
+                if line.trim().is_empty() {
+                    continue;
                 }
+                let event = match serde_json::from_str::<AgentEvent>(&line) {
+                    Ok(event) => event,
+                    Err(_) => AgentEvent::Result {
+                        result: serde_json::json!({"text": line}),
+                        subtype: Some("raw".to_string()),
+                    },
+                };
+                // If no subscribers, the send will fail — that's fine
+                let _ = tx.send(event);
             }
             info!("Process {} stdout reader exited", pid);
         });
 
-        // Stderr reader - log warnings
+        // Stderr reader — log warnings
         tokio::spawn(async move {
             let reader = BufReader::new(stderr);
             let mut lines = reader.lines();
@@ -110,8 +88,6 @@ impl ProcessHandle {
             pid,
             stdin: Arc::new(Mutex::new(stdin)),
             event_tx,
-            event_rx: Arc::new(Mutex::new(Some(event_rx))),
-            kill_tx,
         })
     }
 
@@ -124,14 +100,16 @@ impl ProcessHandle {
         Ok(())
     }
 
-    /// Take the event receiver (can only be called once)
-    pub fn take_event_rx(&self) -> Option<mpsc::Receiver<AgentEvent>> {
-        self.event_rx.try_lock().ok()?.take()
+    /// Subscribe to events (can be called multiple times)
+    pub fn subscribe(&self) -> broadcast::Receiver<AgentEvent> {
+        self.event_tx.subscribe()
     }
 
     /// Stop the process
     pub async fn stop(&self) -> Result<()> {
-        let _ = self.kill_tx.send(()).await;
+        // Drop the stdin to signal EOF to the child
+        let mut stdin = self.stdin.lock().await;
+        stdin.shutdown().await?;
         Ok(())
     }
 }
