@@ -112,9 +112,9 @@ struct CreateBotSheet: View {
             Form {
                 TextField("机器人名称", text: $name)
                 Picker("引擎", selection: $engine) {
-                    Text("Claude").tag("claude")
+                    Text("Claude Code").tag("claude")
                     Text("Kimi").tag("kimi")
-                    Text("Gemini").tag("gemini")
+                    Text("Codex").tag("codex")
                 }
 
                 if let errorMsg {

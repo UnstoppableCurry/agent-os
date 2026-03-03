@@ -4,7 +4,7 @@ public struct ChatView: View {
     let botId: String
     let botName: String
 
-    @State private var messages: [Message] = []
+    @State private var lines: [ConsoleLine] = []
     @State private var inputText = ""
     @State private var isStreaming = false
 
@@ -15,57 +15,61 @@ public struct ChatView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            messageList
+            // Terminal output area
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        ForEach(lines) { line in
+                            Text(line.text)
+                                .font(.system(.body, design: .monospaced))
+                                .foregroundStyle(line.color)
+                                .textSelection(.enabled)
+                                .id(line.id)
+                        }
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .background(Color.black)
+                .onChange(of: lines.count) {
+                    if let last = lines.last {
+                        withAnimation {
+                            proxy.scrollTo(last.id, anchor: .bottom)
+                        }
+                    }
+                }
+            }
+
             Divider()
-            inputBar
+
+            // Input bar
+            HStack(spacing: 8) {
+                Text(">")
+                    .font(.system(.body, design: .monospaced))
+                    .foregroundStyle(.green)
+                TextField("输入消息...", text: $inputText)
+                    .font(.system(.body, design: .monospaced))
+                    .textFieldStyle(.plain)
+                    .onSubmit { sendMessage() }
+                    .disabled(isStreaming)
+                Button {
+                    sendMessage()
+                } label: {
+                    Image(systemName: isStreaming ? "stop.fill" : "paperplane.fill")
+                        .foregroundStyle(inputText.isEmpty ? .gray : .green)
+                }
+                .buttonStyle(.plain)
+                .disabled(inputText.isEmpty && !isStreaming)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.black)
         }
         .navigationTitle(botName)
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
-    }
-
-    private var messageList: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
-                    ForEach(messages) { message in
-                        MessageBubble(message: message)
-                            .id(message.id)
-                    }
-                }
-                .padding()
-            }
-            .onChange(of: messages.count) {
-                if let last = messages.last {
-                    withAnimation {
-                        proxy.scrollTo(last.id, anchor: .bottom)
-                    }
-                }
-            }
+        .onAppear {
+            appendLine("已连接到 \(botName) (id: \(botId.prefix(8))...)", color: .gray)
+            appendLine("输入消息开始对话\n", color: .gray)
         }
-    }
-
-    private var inputBar: some View {
-        HStack(spacing: 12) {
-            TextField("输入消息...", text: $inputText, axis: .vertical)
-                .textFieldStyle(.plain)
-                .lineLimit(1...5)
-                .padding(10)
-                .background(Color.gray.opacity(0.15))
-                .clipShape(RoundedRectangle(cornerRadius: 20))
-
-            Button {
-                sendMessage()
-            } label: {
-                Image(systemName: isStreaming ? "stop.circle.fill" : "arrow.up.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(inputText.isEmpty && !isStreaming ? .gray : .blue)
-            }
-            .disabled(inputText.isEmpty && !isStreaming)
-        }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
     }
 
     private func sendMessage() {
@@ -73,103 +77,57 @@ public struct ChatView: View {
         let text = inputText
         inputText = ""
 
-        let userMsg = Message(role: .user, content: text)
-        messages.append(userMsg)
-
+        appendLine("> \(text)", color: .green)
         isStreaming = true
-        let assistantMsg = Message(role: .assistant, content: "")
-        messages.append(assistantMsg)
+        // 添加空行作为回复占位
+        let replyId = appendLine("", color: .white)
 
         Task {
             await APIClient.shared.sendMessage(text, botId: botId) { event in
                 Task { @MainActor in
-                    self.applyStreamEvent(event)
+                    applyEvent(event, replyLineId: replyId)
                 }
             }
-            await MainActor.run { isStreaming = false }
+            await MainActor.run {
+                isStreaming = false
+                appendLine("", color: .white) // blank line after response
+            }
         }
     }
 
     @MainActor
-    private func applyStreamEvent(_ event: StreamEvent) {
+    private func applyEvent(_ event: StreamEvent, replyLineId: UUID) {
         switch event {
         case .contentDelta(let text):
-            if !messages.isEmpty, messages.last?.role == .assistant, messages.last?.type == .text {
-                messages[messages.count - 1].content += text
+            if let idx = lines.firstIndex(where: { $0.id == replyLineId }) {
+                lines[idx].text += text
             }
         case .thinking(let text):
-            let thinkingMsg = Message(role: .assistant, content: text, type: .thinking)
-            messages.insert(thinkingMsg, at: max(0, messages.count - 1))
+            appendLine("[思考] \(text)", color: .cyan)
         case .toolUse(_, let name, let input):
-            let toolMsg = Message(role: .assistant, content: input, type: .toolUse, toolName: name)
-            messages.insert(toolMsg, at: max(0, messages.count - 1))
+            appendLine("[工具] \(name): \(input.prefix(200))", color: .orange)
         case .toolResult(_, let content):
-            let resultMsg = Message(role: .assistant, content: content, type: .toolResult)
-            messages.insert(resultMsg, at: max(0, messages.count - 1))
+            appendLine("[结果] \(content.prefix(300))", color: .green)
         case .messageStop:
             isStreaming = false
         case .error(let msg):
-            if !messages.isEmpty, messages.last?.role == .assistant {
-                messages[messages.count - 1].content = "错误: \(msg)"
-            }
+            appendLine("[错误] \(msg)", color: .red)
             isStreaming = false
         default:
             break
         }
     }
+
+    @MainActor @discardableResult
+    private func appendLine(_ text: String, color: Color) -> UUID {
+        let line = ConsoleLine(text: text, color: color)
+        lines.append(line)
+        return line.id
+    }
 }
 
-struct MessageBubble: View {
-    let message: Message
-
-    var body: some View {
-        HStack {
-            if message.role == .user { Spacer(minLength: 60) }
-
-            VStack(alignment: .leading, spacing: 4) {
-                switch message.type {
-                case .thinking:
-                    Label("思考中", systemImage: "brain")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text(message.content)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .italic()
-                case .toolUse:
-                    Label(message.toolName ?? "工具", systemImage: "wrench")
-                        .font(.caption.bold())
-                        .foregroundStyle(.orange)
-                    Text(message.content)
-                        .font(.caption)
-                        .fontDesign(.monospaced)
-                case .toolResult:
-                    Label("结果", systemImage: "checkmark.circle")
-                        .font(.caption)
-                        .foregroundStyle(.green)
-                    Text(message.content)
-                        .font(.caption)
-                        .fontDesign(.monospaced)
-                        .lineLimit(5)
-                case .text:
-                    Text(message.content)
-                }
-            }
-            .padding(12)
-            .background(backgroundColor)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-
-            if message.role == .assistant { Spacer(minLength: 60) }
-        }
-    }
-
-    private var backgroundColor: Color {
-        switch message.type {
-        case .thinking: return Color.gray.opacity(0.2)
-        case .toolUse: return Color.orange.opacity(0.1)
-        case .toolResult: return Color.green.opacity(0.1)
-        case .text:
-            return message.role == .user ? .blue : Color.gray.opacity(0.15)
-        }
-    }
+struct ConsoleLine: Identifiable {
+    let id = UUID()
+    var text: String
+    var color: Color
 }

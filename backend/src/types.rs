@@ -36,8 +36,7 @@ pub struct BotConfig {
 pub enum EngineType {
     Claude,
     Kimi,
-    Gemini,
-    Glm,
+    Codex,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -95,8 +94,6 @@ pub struct EngineCapabilities {
     pub name: String,
     pub supports_streaming: bool,
     pub supports_tools: bool,
-    pub supports_thinking: bool,
-    pub supports_images: bool,
 }
 
 // ─── API Request/Response ───

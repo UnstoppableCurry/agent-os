@@ -4,7 +4,6 @@ use anyhow::Result;
 use chrono::Utc;
 use tokio::fs::{self, OpenOptions};
 use tokio::io::AsyncWriteExt;
-use tracing::info;
 
 use crate::types::StreamEvent;
 

@@ -7,45 +7,41 @@ use crate::types::{AgentEvent, BotConfig, EngineCapabilities};
 
 use super::{AgentEngine, ProcessHandle};
 
-pub struct ClaudeCodeAdapter {
-    claude_path: String,
+pub struct KimiAdapter {
+    kimi_path: String,
 }
 
-impl ClaudeCodeAdapter {
+impl KimiAdapter {
     pub fn new() -> Self {
-        // Use env var or search common locations
-        let claude_path = std::env::var("CLAUDE_PATH").unwrap_or_else(|_| {
-            // Try to find claude in known locations
+        let kimi_path = std::env::var("KIMI_PATH").unwrap_or_else(|_| {
             let home = std::env::var("HOME").unwrap_or_default();
             let candidates = [
-                format!("{}/npm-global/bin/claude", home),
-                format!("{}/.npm-global/bin/claude", home),
-                "/usr/local/bin/claude".to_string(),
-                "claude".to_string(), // fallback to PATH
+                format!("{}/npm-global/bin/kimi", home),
+                format!("{}/.npm-global/bin/kimi", home),
+                "/usr/local/bin/kimi".to_string(),
+                "kimi".to_string(),
             ];
             for c in &candidates {
                 if std::path::Path::new(c).exists() {
                     return c.clone();
                 }
             }
-            "claude".to_string()
+            "kimi".to_string()
         });
-        info!("Claude binary path: {}", claude_path);
-        Self { claude_path }
+        info!("Kimi binary path: {}", kimi_path);
+        Self { kimi_path }
     }
 }
 
 #[async_trait]
-impl AgentEngine for ClaudeCodeAdapter {
+impl AgentEngine for KimiAdapter {
     async fn spawn(&self, config: &BotConfig) -> Result<ProcessHandle> {
         let mut args = vec![
             "--output-format", "stream-json",
             "--input-format", "stream-json",
-            "--verbose",
             "--dangerously-skip-permissions",
         ];
 
-        // Add system prompt if provided
         let system_prompt_owned;
         if let Some(ref prompt) = config.system_prompt {
             system_prompt_owned = prompt.clone();
@@ -53,7 +49,6 @@ impl AgentEngine for ClaudeCodeAdapter {
             args.push(&system_prompt_owned);
         }
 
-        // Add working directory
         let work_dir;
         if let Some(ref dir) = config.working_dir {
             work_dir = dir.clone();
@@ -61,14 +56,11 @@ impl AgentEngine for ClaudeCodeAdapter {
             args.push(&work_dir);
         }
 
-        let env = vec![
-            ("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1"),
-            ("CLAUDE_CODE_DISABLE_BACKGROUND_TASKS", "1"),
-        ];
+        let env: Vec<(&str, &str)> = vec![];
 
-        info!("Spawning Claude Code: {} {}", self.claude_path, args.join(" "));
-        let handle = ProcessHandle::spawn(&self.claude_path, &args, &env).await?;
-        info!("Claude Code process started, pid={}", handle.pid);
+        info!("Spawning Kimi: {} {}", self.kimi_path, args.join(" "));
+        let handle = ProcessHandle::spawn(&self.kimi_path, &args, &env).await?;
+        info!("Kimi process started, pid={}", handle.pid);
 
         Ok(handle)
     }
@@ -91,7 +83,7 @@ impl AgentEngine for ClaudeCodeAdapter {
 
     fn capabilities(&self) -> EngineCapabilities {
         EngineCapabilities {
-            name: "Claude Code".to_string(),
+            name: "Kimi".to_string(),
             supports_streaming: true,
             supports_tools: true,
         }

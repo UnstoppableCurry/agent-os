@@ -7,7 +7,7 @@ use tokio::sync::{Mutex, RwLock, broadcast};
 use tracing::{info, error};
 use uuid::Uuid;
 
-use crate::engine::{AgentEngine, ClaudeCodeAdapter, ProcessHandle};
+use crate::engine::{AgentEngine, ClaudeCodeAdapter, CodexAdapter, KimiAdapter, ProcessHandle};
 use crate::types::*;
 
 struct BotInstance {
@@ -25,6 +25,8 @@ impl BotManager {
     pub fn new() -> Self {
         let mut engines: HashMap<String, Box<dyn AgentEngine>> = HashMap::new();
         engines.insert("claude".to_string(), Box::new(ClaudeCodeAdapter::new()));
+        engines.insert("kimi".to_string(), Box::new(KimiAdapter::new()));
+        engines.insert("codex".to_string(), Box::new(CodexAdapter::new()));
 
         Self {
             bots: RwLock::new(HashMap::new()),
@@ -57,8 +59,7 @@ impl BotManager {
         let engine_key = match &config.engine {
             EngineType::Claude => "claude",
             EngineType::Kimi => "kimi",
-            EngineType::Gemini => "gemini",
-            EngineType::Glm => "glm",
+            EngineType::Codex => "codex",
         };
 
         let engine = self.engines.get(engine_key)
@@ -114,7 +115,8 @@ impl BotManager {
 
         let engine_key = match &instance.config.engine {
             EngineType::Claude => "claude",
-            _ => return Err(anyhow::anyhow!("Engine not implemented")),
+            EngineType::Kimi => "kimi",
+            EngineType::Codex => "codex",
         };
 
         let engine = self.engines.get(engine_key).unwrap();
