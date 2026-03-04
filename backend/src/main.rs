@@ -44,12 +44,29 @@ async fn main() {
         format!("{}/projects/agent-os/memory", home)
     });
 
+    let data_dir = std::env::var("AGENT_OS_DATA_DIR").unwrap_or_else(|_| {
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        format!("{}/projects/agent-os/data", home)
+    });
+
     info!("Memory directory: {}", memory_dir);
+    info!("Data directory: {}", data_dir);
+
+    let bot_manager = BotManager::new(&data_dir).await
+        .expect("Failed to initialize BotManager");
+    let bot_manager = Arc::new(bot_manager);
+
+    // Start idle manager background task
+    let idle_mgr = bot::idle_manager::IdleManager::new(30);
+    let mgr_clone = bot_manager.clone();
+    tokio::spawn(async move {
+        idle_mgr.run(mgr_clone).await;
+    });
 
     let state = AppState {
         stream_store: Arc::new(StreamStore::new(format!("{}/stream", memory_dir))),
         crystal_store: Arc::new(CrystalStore::new(format!("{}/crystal", memory_dir))),
-        bot_manager: Arc::new(BotManager::new()),
+        bot_manager,
     };
 
     let app = Router::new()
@@ -95,8 +112,8 @@ async fn bots_get(State(s): State<AppState>, Path(id): Path<uuid::Uuid>) -> Resp
 }
 
 async fn bots_stop(State(s): State<AppState>, Path(id): Path<uuid::Uuid>) -> Response {
-    match s.bot_manager.stop(id).await {
-        Ok(_) => Json(types::ApiResponse::ok("stopped")).into_response(),
+    match s.bot_manager.delete(id).await {
+        Ok(_) => Json(types::ApiResponse::ok("deleted")).into_response(),
         Err(e) => Json(types::ApiResponse::<()>::err(e.to_string())).into_response(),
     }
 }
@@ -115,10 +132,18 @@ async fn bots_send(
         }
     };
 
+    let mgr = s.bot_manager.clone();
     let stream = async_stream::stream! {
         loop {
             match event_rx.recv().await {
                 Ok(event) => {
+                    // Extract session_id from init event and persist it
+                    if let Some(sid) = bot::BotManager::extract_session_id(&event) {
+                        mgr.set_session_id(id, sid).await;
+                    }
+                    // Log to session store + event buffer
+                    mgr.log_event(id, &event).await;
+
                     let json = serde_json::to_string(&event).unwrap_or_default();
                     yield Ok::<_, Infallible>(Event::default().data(json));
 

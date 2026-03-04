@@ -18,11 +18,10 @@ public struct ContentView: View {
         .navigationSplitViewStyle(.balanced)
     }
 
-    // MARK: - 左侧边栏
+    // MARK: - Sidebar
 
     private var sidebar: some View {
         VStack(spacing: 0) {
-            // Bot 列表
             List(selection: $selectedBotId) {
                 if bots.isEmpty && !isLoading {
                     VStack(spacing: 12) {
@@ -63,7 +62,7 @@ public struct ContentView: View {
 
             Divider()
 
-            // 底部工具栏
+            // Bottom toolbar
             HStack(spacing: 16) {
                 Button {
                     showCreateSheet = true
@@ -121,7 +120,7 @@ public struct ContentView: View {
         .task { await loadBots() }
     }
 
-    // MARK: - 右侧详情
+    // MARK: - Detail
 
     @ViewBuilder
     private var detailView: some View {
@@ -151,7 +150,7 @@ public struct ContentView: View {
     }
 }
 
-// MARK: - 侧栏 Bot 行
+// MARK: - Sidebar Bot Row
 
 struct BotSidebarRow: View {
     let bot: BotResponse
@@ -159,7 +158,6 @@ struct BotSidebarRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            // 引擎图标
             ZStack {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(engineColor.opacity(0.15))
@@ -174,9 +172,9 @@ struct BotSidebarRow: View {
                     .lineLimit(1)
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(bot.state == "running" ? Color.green : .gray)
+                        .fill(stateColor)
                         .frame(width: 6, height: 6)
-                    Text(bot.state == "running" ? "运行中" : "已停止")
+                    Text(stateLabel)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Text("·")
@@ -184,12 +182,51 @@ struct BotSidebarRow: View {
                     Text(bot.engine)
                         .font(.caption)
                         .foregroundStyle(.tertiary)
+                    if let count = bot.message_count, count > 0 {
+                        Text("·")
+                            .foregroundStyle(.tertiary)
+                        Text("\(count)条")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
                 }
             }
 
             Spacer()
+
+            // State icon for suspended/error
+            if bot.state == "suspended" {
+                Image(systemName: "pause.circle")
+                    .font(.caption)
+                    .foregroundStyle(.gray)
+            } else if bot.state == "error" {
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
         }
         .padding(.vertical, 4)
+    }
+
+    private var stateColor: Color {
+        switch bot.state {
+        case "running": return .green
+        case "suspended": return .gray
+        case "error": return .red
+        case "starting": return .orange
+        default: return .gray
+        }
+    }
+
+    private var stateLabel: String {
+        switch bot.state {
+        case "running": return "运行中"
+        case "suspended": return "已暂停"
+        case "error": return "错误"
+        case "starting": return "启动中"
+        case "stopped": return "已停止"
+        default: return "未知"
+        }
     }
 
     private var engineColor: Color {
@@ -211,12 +248,14 @@ struct BotSidebarRow: View {
     }
 }
 
-// MARK: - 创建 Bot 面板
+// MARK: - Create Bot Sheet
 
 struct CreateBotSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var engine = "claude"
+    @State private var permissionMode = "bypass_permissions"
+    @State private var idleTimeoutMins: Int = 30
     @State private var isCreating = false
     @State private var errorMsg: String?
     let onCreate: (BotResponse) -> Void
@@ -232,6 +271,20 @@ struct CreateBotSheet: View {
                         Label("Kimi", systemImage: "moon.stars").tag("kimi")
                         Label("Codex", systemImage: "terminal").tag("codex")
                     }
+                }
+
+                Section("权限模式") {
+                    Picker("权限", selection: $permissionMode) {
+                        Text("跳过所有权限").tag("bypass_permissions")
+                        Text("自动接受编辑").tag("accept_edits")
+                        Text("计划模式").tag("plan")
+                        Text("默认 (需确认)").tag("default")
+                    }
+                    .pickerStyle(.menu)
+                }
+
+                Section("高级") {
+                    Stepper("空闲超时: \(idleTimeoutMins) 分钟", value: $idleTimeoutMins, in: 5...120, step: 5)
                 }
 
                 if let errorMsg {
@@ -259,13 +312,18 @@ struct CreateBotSheet: View {
                 }
             }
         }
-        .frame(minWidth: 350, minHeight: 200)
+        .frame(minWidth: 350, minHeight: 280)
     }
 
     private func createBot() async {
         isCreating = true
         errorMsg = nil
-        if let bot = await APIClient.shared.createBot(name: name, engine: engine) {
+        if let bot = await APIClient.shared.createBot(
+            name: name,
+            engine: engine,
+            permissionMode: permissionMode,
+            idleTimeoutMins: idleTimeoutMins
+        ) {
             if bot.state == "error" {
                 errorMsg = "机器人启动失败，请检查后端日志"
                 isCreating = false
@@ -280,4 +338,4 @@ struct CreateBotSheet: View {
     }
 }
 
-extension BotResponse: @retroactive Identifiable {}
+extension BotResponse: Identifiable {}

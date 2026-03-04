@@ -10,6 +10,19 @@ use crate::types::AgentEvent;
 pub async fn handle_socket_inner(mut socket: WebSocket, mgr: Arc<BotManager>, bot_id: Uuid) {
     info!("WebSocket connected for bot {}", bot_id);
 
+    // Replay buffered events for history
+    let history = mgr.get_buffered_events(bot_id).await;
+    if !history.is_empty() {
+        info!("Replaying {} buffered events for bot {}", history.len(), bot_id);
+        for event in &history {
+            if let Some(text) = event_to_text(event) {
+                if socket.send(Message::Text(text.into())).await.is_err() {
+                    return;
+                }
+            }
+        }
+    }
+
     let mut event_rx = match mgr.subscribe(bot_id).await {
         Ok(rx) => rx,
         Err(e) => {
@@ -26,6 +39,14 @@ pub async fn handle_socket_inner(mut socket: WebSocket, mgr: Arc<BotManager>, bo
             result = event_rx.recv() => {
                 match result {
                     Ok(event) => {
+                        // Extract session_id from init events
+                        if let Some(sid) = BotManager::extract_session_id(&event) {
+                            mgr.set_session_id(bot_id, sid).await;
+                        }
+
+                        // Log event to session store
+                        mgr.log_event(bot_id, &event).await;
+
                         let text = event_to_text(&event);
                         debug!("WS event: {:?} -> {:?}", event, text);
                         if let Some(text) = text {
@@ -83,7 +104,6 @@ fn event_to_text(event: &AgentEvent) -> Option<String> {
 
         AgentEvent::Assistant { message, .. } => {
             // Extract text from message.content[]
-            // Format: {"content": [{"type": "text", "text": "Hello!"}, {"type": "tool_use", "name": "...", "input": {...}}]}
             let content = message.get("content")?.as_array()?;
             let mut parts = Vec::new();
 
@@ -151,7 +171,6 @@ fn event_to_text(event: &AgentEvent) -> Option<String> {
                 let err_text = result.as_deref().unwrap_or("未知错误");
                 return Some(format!("❌ 错误: {}", err_text));
             }
-            // Show result with duration
             let duration = duration_ms.map(|ms| format!(" ({}ms)", ms)).unwrap_or_default();
             match subtype.as_deref() {
                 Some("success") => {
@@ -161,9 +180,9 @@ fn event_to_text(event: &AgentEvent) -> Option<String> {
             }
         }
 
-        AgentEvent::User { .. } => None, // Don't echo back user messages
+        AgentEvent::User { .. } => None,
 
-        AgentEvent::ControlResponse { .. } => None, // SDK internal, skip
+        AgentEvent::ControlResponse { .. } => None,
 
         AgentEvent::Unknown => None,
     }

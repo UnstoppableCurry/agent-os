@@ -11,3 +11,4 @@
 {"ts":"2026-03-03T19:00:00+08:00","type":"task","action":"done","data":{"name":"记忆系统设计","project":"agent-os","summary":"五层记忆架构全部文件创建完成: bedrock(2) + crystal(11) + sensors(6) + stream(1) + mirror(模板)"},"tags":["coding","agent-os","memory","milestone"]}
 {"ts":"2026-03-03T19:30:00+08:00","type":"mood","level":"positive","data":{"note":"记忆系统完成，感觉 AgentOS 有了灵魂","energy":"medium"},"tags":["work","satisfaction"]}
 {"ts":"2026-03-03T12:06:38.844526Z","source":"app:test-app","type":"test.ping","data":{"msg":"hello from test"},"meta":null}
+{"ts":"2026-03-03T13:14:05.516149Z","source":"app:test","type":"mood","data":{"note":"测试中"},"meta":null}

@@ -1,0 +1,27 @@
+{
+  "config": {
+    "id": "cc5838cd-934f-4815-95ab-d5daaeb145ab",
+    "name": "t",
+    "engine": "claude",
+    "role": "worker",
+    "system_prompt": null,
+    "skills": [],
+    "working_dir": null
+  },
+  "status": {
+    "id": "cc5838cd-934f-4815-95ab-d5daaeb145ab",
+    "name": "t",
+    "engine": "claude",
+    "role": "worker",
+    "state": "running",
+    "created_at": "2026-03-04T02:32:28.734518Z",
+    "message_count": 2
+  },
+  "session_id": "0a19f1d2-57aa-42bf-8468-cfaf256f5f00",
+  "permission_mode": "bypass_permissions",
+  "idle_timeout_mins": 30,
+  "created_at": "2026-03-04T02:32:28.734518Z",
+  "last_active_at": "2026-03-04T02:32:46.929228Z",
+  "message_count": 2,
+  "restart_count": 0
+}

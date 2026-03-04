@@ -1,9 +1,10 @@
+use std::process::ExitStatus;
 use std::sync::Arc;
 
 use anyhow::Result;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::{broadcast, watch, Mutex};
 use tracing::{debug, error, info};
 
 use crate::types::AgentEvent;
@@ -13,6 +14,7 @@ pub struct ProcessHandle {
     pub pid: u32,
     stdin: Arc<Mutex<tokio::process::ChildStdin>>,
     event_tx: broadcast::Sender<AgentEvent>,
+    exit_rx: watch::Receiver<Option<ExitStatus>>,
 }
 
 impl ProcessHandle {
@@ -50,6 +52,9 @@ impl ProcessHandle {
         let (event_tx, _) = broadcast::channel::<AgentEvent>(1024);
         let tx = event_tx.clone();
         let tx2 = event_tx.clone();
+
+        // Exit status notification channel
+        let (exit_tx, exit_rx) = watch::channel::<Option<ExitStatus>>(None);
 
         // Stdout reader — parse NDJSON, fallback to raw text
         tokio::spawn(async move {
@@ -96,11 +101,17 @@ impl ProcessHandle {
             }
         });
 
-        // Process exit watcher
+        // Process exit watcher — notifies via watch channel
         tokio::spawn(async move {
             match child.wait().await {
-                Ok(status) => info!("Process {} exited with {}", pid, status),
-                Err(e) => error!("Process {} wait error: {}", pid, e),
+                Ok(status) => {
+                    info!("Process {} exited with {}", pid, status);
+                    let _ = exit_tx.send(Some(status));
+                }
+                Err(e) => {
+                    error!("Process {} wait error: {}", pid, e);
+                    let _ = exit_tx.send(None);
+                }
             }
         });
 
@@ -108,6 +119,7 @@ impl ProcessHandle {
             pid,
             stdin: Arc::new(Mutex::new(stdin)),
             event_tx,
+            exit_rx,
         })
     }
 
@@ -125,6 +137,16 @@ impl ProcessHandle {
     /// Subscribe to events (can be called multiple times)
     pub fn subscribe(&self) -> broadcast::Receiver<AgentEvent> {
         self.event_tx.subscribe()
+    }
+
+    /// Get a receiver for process exit notification
+    pub fn exit_receiver(&self) -> watch::Receiver<Option<ExitStatus>> {
+        self.exit_rx.clone()
+    }
+
+    /// Check if the process is still alive
+    pub fn is_alive(&self) -> bool {
+        self.exit_rx.borrow().is_none()
     }
 
     /// Stop the process

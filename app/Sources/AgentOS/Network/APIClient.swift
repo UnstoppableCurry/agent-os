@@ -34,13 +34,16 @@ public final class APIClient: Sendable {
         }
     }
 
-    public func createBot(name: String, engine: String) async -> BotResponse? {
+    public func createBot(name: String, engine: String, permissionMode: String? = nil, resumeSession: String? = nil, idleTimeoutMins: Int? = nil) async -> BotResponse? {
         guard let url = URL(string: "\(baseURL)/v1/bots") else { return nil }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let body: [String: String] = ["name": name, "engine": engine]
-        request.httpBody = try? JSONEncoder().encode(body)
+        var body: [String: Any] = ["name": name, "engine": engine]
+        if let pm = permissionMode { body["permission_mode"] = pm }
+        if let rs = resumeSession { body["resume_session"] = rs }
+        if let it = idleTimeoutMins { body["idle_timeout_mins"] = it }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         do {
             let (data, _) = try await URLSession.shared.data(for: request)
@@ -143,4 +146,6 @@ public struct BotResponse: Codable, Sendable {
     public let name: String
     public let engine: String
     public let state: String?
+    public let message_count: Int?
+    public let created_at: String?
 }

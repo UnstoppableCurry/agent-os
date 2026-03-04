@@ -10,6 +10,8 @@ public struct ChatView: View {
     @State private var webSocketTask: URLSessionWebSocketTask?
     @State private var isConnected = false
     @State private var isWaiting = false
+    @State private var reconnectAttempt = 0
+    @State private var isReconnecting = false
 
     public init(botId: String, botName: String, botEngine: String = "claude") {
         self.botId = botId
@@ -19,10 +21,10 @@ public struct ChatView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            // ─── 顶部状态栏 ───
+            // Top status bar
             HStack(spacing: 8) {
                 Circle()
-                    .fill(isConnected ? Color.green : .red)
+                    .fill(isConnected ? Color.green : (isReconnecting ? .orange : .red))
                     .frame(width: 8, height: 8)
                 Text(botName)
                     .font(.headline)
@@ -32,7 +34,13 @@ public struct ChatView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Spacer()
-                if isWaiting {
+                if isReconnecting {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("重连中...")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                } else if isWaiting {
                     ProgressView()
                         .controlSize(.small)
                     Text("处理中...")
@@ -55,7 +63,7 @@ public struct ChatView: View {
 
             Divider()
 
-            // ─── 终端输出区域 ───
+            // Terminal output
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 1) {
@@ -77,7 +85,7 @@ public struct ChatView: View {
                 }
             }
 
-            // ─── 输入栏 ───
+            // Input area
             HStack(spacing: 10) {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
@@ -196,9 +204,15 @@ public struct ChatView: View {
         task.resume()
         webSocketTask = task
         isConnected = true
+        isReconnecting = false
+        reconnectAttempt = 0
 
-        addLine("已连接到 \(botName) (\(botEngine))", style: .system)
-        addLine("输入消息开始对话", style: .system)
+        if lines.isEmpty {
+            addLine("已连接到 \(botName) (\(botEngine))", style: .system)
+            addLine("输入消息开始对话", style: .system)
+        } else {
+            addLine("已重新连接", style: .system)
+        }
         receiveLoop()
     }
 
@@ -206,6 +220,21 @@ public struct ChatView: View {
         disconnectWebSocket()
         lines.removeAll()
         connectWebSocket()
+    }
+
+    /// Auto-reconnect with exponential backoff: 1s, 2s, 4s, ... max 30s
+    private func scheduleReconnect() {
+        guard !isReconnecting else { return }
+        isReconnecting = true
+        let delay = min(pow(2.0, Double(reconnectAttempt)), 30.0)
+        reconnectAttempt += 1
+        addLine("连接断开，\(String(format: "%.0f", delay))秒后重连 (第\(reconnectAttempt)次)", style: .system)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            if !isConnected {
+                connectWebSocket()
+            }
+        }
     }
 
     private func receiveLoop() {
@@ -231,6 +260,8 @@ public struct ChatView: View {
                         addLine("连接断开: \(error.localizedDescription)", style: .error)
                         isConnected = false
                         isWaiting = false
+                        // Auto-reconnect
+                        scheduleReconnect()
                     }
                 }
             }
@@ -239,8 +270,7 @@ public struct ChatView: View {
 
     @MainActor
     private func handleIncoming(_ text: String) {
-        // Backend sends plain text with emoji prefixes from event_to_text():
-        // 🟢 system init, 💭 thinking, 🔧 tool, 📋 result, ───separator, ❌ error
+        // Backend sends plain text with emoji prefixes from event_to_text()
         if text.hasPrefix("🟢") {
             addLine(String(text.dropFirst(2)).trimmingCharacters(in: .whitespaces), style: .system)
         } else if text.hasPrefix("💭") {
@@ -259,7 +289,6 @@ public struct ChatView: View {
             addLine(text, style: .error)
             isWaiting = false
         } else {
-            // Normal response text — create new line per message
             addLine(text, style: .response)
         }
     }
@@ -285,6 +314,7 @@ public struct ChatView: View {
 
     private func disconnectWebSocket() {
         isConnected = false
+        isReconnecting = false
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
     }
@@ -298,14 +328,14 @@ public struct ChatView: View {
 // MARK: - Data Models
 
 enum TermLineStyle {
-    case system      // 灰色系统消息
-    case userInput   // 绿色用户输入
-    case response    // 白色 AI 回复
-    case thinking    // 青色思考
-    case tool        // 橙色工具调用
-    case toolResult  // 暗色工具结果
-    case error       // 红色错误
-    case separator   // 分隔线
+    case system
+    case userInput
+    case response
+    case thinking
+    case tool
+    case toolResult
+    case error
+    case separator
 }
 
 struct TermLine: Identifiable {

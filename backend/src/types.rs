@@ -64,6 +64,7 @@ pub enum BotState {
     Stopped,
     Error,
     Starting,
+    Suspended,
 }
 
 // ─── Agent Engine Events (Claude Code stream-json 输出) ───
@@ -153,6 +154,21 @@ pub struct CreateBotRequest {
     pub skills: Vec<String>,
     #[serde(default)]
     pub working_dir: Option<String>,
+    #[serde(default)]
+    pub permission_mode: Option<PermissionMode>,
+    #[serde(default)]
+    pub resume_session: Option<String>,
+    #[serde(default)]
+    pub idle_timeout_mins: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum PermissionMode {
+    BypassPermissions,
+    Default,
+    AcceptEdits,
+    Plan,
 }
 
 fn default_worker_role() -> BotRole {
@@ -199,4 +215,19 @@ pub struct RawEvent {
     pub data: serde_json::Value,
     #[serde(default)]
     pub meta: serde_json::Value,
+}
+
+// ─── Bot Persistence Record ───
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BotRecord {
+    pub config: BotConfig,
+    pub status: BotStatus,
+    pub session_id: Option<String>,
+    pub permission_mode: Option<PermissionMode>,
+    pub idle_timeout_mins: Option<u32>,
+    pub created_at: DateTime<Utc>,
+    pub last_active_at: DateTime<Utc>,
+    pub message_count: u64,
+    pub restart_count: u32,
 }

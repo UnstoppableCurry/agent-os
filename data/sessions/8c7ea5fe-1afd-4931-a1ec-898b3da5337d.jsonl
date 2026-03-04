@@ -1,0 +1,5 @@
+{"type":"raw","text":"Usage: kimi [OPTIONS] COMMAND [ARGS]..."}
+{"type":"raw","text":"Try 'kimi -h' for help."}
+{"type":"raw","text":"╭─ Error ──────────────────────────────────────────────────────────────────────╮"}
+{"type":"raw","text":"│ No such option: --dangerously-skip-permissions                               │"}
+{"type":"raw","text":"╰──────────────────────────────────────────────────────────────────────────────╯"}

@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use tokio::sync::broadcast;
 use tracing::info;
 
-use crate::types::{AgentEvent, BotConfig};
+use crate::types::{AgentEvent, BotConfig, PermissionMode};
 
 use super::{AgentEngine, ProcessHandle};
 
@@ -31,24 +31,67 @@ impl ClaudeCodeAdapter {
         info!("Claude binary path: {}", claude_path);
         Self { claude_path }
     }
+
+    fn build_args(
+        config: &BotConfig,
+        session_id: Option<&str>,
+        permission_mode: Option<&PermissionMode>,
+    ) -> Vec<String> {
+        let mut args = vec![
+            "--output-format".to_string(), "stream-json".to_string(),
+            "--input-format".to_string(), "stream-json".to_string(),
+            "--verbose".to_string(),
+        ];
+
+        // Permission mode
+        match permission_mode {
+            Some(PermissionMode::Default) => {
+                // No permission flags
+            }
+            Some(PermissionMode::AcceptEdits) => {
+                args.push("--permission-mode".to_string());
+                args.push("acceptEdits".to_string());
+            }
+            Some(PermissionMode::Plan) => {
+                args.push("--permission-mode".to_string());
+                args.push("plan".to_string());
+            }
+            Some(PermissionMode::BypassPermissions) | None => {
+                args.push("--dangerously-skip-permissions".to_string());
+            }
+        }
+
+        // Session resumption
+        if let Some(sid) = session_id {
+            args.push("--session-id".to_string());
+            args.push(sid.to_string());
+            args.push("--resume".to_string());
+        }
+
+        // System prompt
+        if let Some(ref prompt) = config.system_prompt {
+            args.push("--system-prompt".to_string());
+            args.push(prompt.clone());
+        }
+
+        args
+    }
 }
 
 #[async_trait]
 impl AgentEngine for ClaudeCodeAdapter {
     async fn spawn(&self, config: &BotConfig) -> Result<ProcessHandle> {
-        let mut args = vec![
-            "--output-format", "stream-json",
-            "--input-format", "stream-json",
-            "--verbose",
-            "--dangerously-skip-permissions",
-        ];
+        self.spawn_with_options(config, None, None).await
+    }
 
-        let system_prompt_owned;
-        if let Some(ref prompt) = config.system_prompt {
-            system_prompt_owned = prompt.clone();
-            args.push("--system-prompt");
-            args.push(&system_prompt_owned);
-        }
+    async fn spawn_with_options(
+        &self,
+        config: &BotConfig,
+        session_id: Option<&str>,
+        permission_mode: Option<&PermissionMode>,
+    ) -> Result<ProcessHandle> {
+        let args_owned = Self::build_args(config, session_id, permission_mode);
+        let args: Vec<&str> = args_owned.iter().map(|s| s.as_str()).collect();
 
         let env = vec![
             ("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1"),
@@ -60,17 +103,18 @@ impl AgentEngine for ClaudeCodeAdapter {
         let handle = ProcessHandle::spawn(&self.claude_path, &args, &env, work_dir).await?;
         info!("Claude Code process started, pid={}", handle.pid);
 
-        // Send the SDK initialization control request
-        // Claude Code's stream-json input requires this before accepting user messages
-        let init_msg = serde_json::json!({
-            "type": "control_request",
-            "request": {
-                "subtype": "initialize"
-            },
-            "request_id": "init-1"
-        });
-        info!("Sending SDK initialize request to pid={}", handle.pid);
-        handle.send_line(&serde_json::to_string(&init_msg)?).await?;
+        // Send the SDK initialization control request (only for new sessions)
+        if session_id.is_none() {
+            let init_msg = serde_json::json!({
+                "type": "control_request",
+                "request": {
+                    "subtype": "initialize"
+                },
+                "request_id": "init-1"
+            });
+            info!("Sending SDK initialize request to pid={}", handle.pid);
+            handle.send_line(&serde_json::to_string(&init_msg)?).await?;
+        }
 
         Ok(handle)
     }
