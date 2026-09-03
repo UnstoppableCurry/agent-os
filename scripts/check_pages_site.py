@@ -169,6 +169,8 @@ def check_html_file(rel: str, errors: list[str]) -> PageParser:
 
 
 class PrefixHandler(http.server.SimpleHTTPRequestHandler):
+    """Serve docs/ at /agent-os/, matching GitHub project Pages."""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(DOCS), **kwargs)
 
@@ -178,6 +180,17 @@ class PrefixHandler(http.server.SimpleHTTPRequestHandler):
         elif path == PREFIX:
             path = "/"
         return super().translate_path(path)
+
+    def send_error(self, code: int, message: str | None = None, explain: str | None = None) -> None:
+        if code == 404:
+            body = (DOCS / "404.html").read_bytes()
+            self.send_response(404)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        super().send_error(code, message, explain)
 
     def log_message(self, fmt: str, *args) -> None:  # noqa: A003
         return
@@ -210,6 +223,18 @@ def check_http_render(errors: list[str]) -> None:
                             fail(errors, f"{url}: home page missing AgentOS")
             except urllib.error.URLError as exc:
                 fail(errors, f"fetch {url}: {exc}")
+        missing = base + "/this-page-does-not-exist"
+        try:
+            urllib.request.urlopen(missing, timeout=3)
+            fail(errors, f"{missing} should be 404")
+        except urllib.error.HTTPError as exc:
+            if exc.code != 404:
+                fail(errors, f"{missing}: expected 404, got {exc.code}")
+            body = exc.read()
+            if "没有这个页面".encode() not in body:
+                fail(errors, f"{missing}: 404 body is not docs/404.html")
+        except urllib.error.URLError as exc:
+            fail(errors, f"fetch {missing}: {exc}")
     finally:
         server.shutdown()
 
