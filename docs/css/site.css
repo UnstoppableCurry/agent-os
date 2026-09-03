@@ -1,0 +1,389 @@
+/* AgentOS project overview — static, no third-party assets */
+:root {
+  --bg: #f6f1e8;
+  --bg-elev: #fffdf8;
+  --ink: #1a1714;
+  --ink-muted: #4a433b;
+  --line: #d8cfc0;
+  --accent: #8a3d12;
+  --accent-ink: #fffdf8;
+  --warn-bg: #f3e2c4;
+  --warn-ink: #5c3d00;
+  --ok-bg: #dce8d4;
+  --ok-ink: #243318;
+  --exp-bg: #ead8d0;
+  --exp-ink: #5a2418;
+  --focus: #0b57d0;
+  --max: 44rem;
+  --wide: 58rem;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  margin: 0;
+  font-family: "PingFang SC", "Noto Sans SC", "Source Han Sans SC", "Hiragino Sans GB",
+    "Microsoft YaHei", system-ui, sans-serif;
+  font-size: 1.05rem;
+  line-height: 1.65;
+  color: var(--ink);
+  background: var(--bg);
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+a {
+  color: var(--accent);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  text-decoration-thickness: 0.14em;
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.skip-link {
+  position: absolute;
+  left: 0.75rem;
+  top: -3.5rem;
+  z-index: 20;
+  padding: 0.5rem 0.85rem;
+  background: var(--ink);
+  color: var(--bg);
+  text-decoration: none;
+  border-radius: 0.25rem;
+}
+
+.skip-link:focus {
+  top: 0.75rem;
+}
+
+.site-header {
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-elev);
+}
+
+.site-header__inner,
+.site-footer__inner,
+.wrap {
+  width: min(100% - 2rem, var(--wide));
+  margin-inline: auto;
+}
+
+.site-header__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  padding: 0.9rem 0;
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.brand__name {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.brand__sub {
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+}
+
+.nav a {
+  text-decoration: none;
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+.nav a[aria-current="page"] {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+main {
+  padding: 2rem 0 3.5rem;
+}
+
+.hero {
+  margin-bottom: 2rem;
+}
+
+.hero h1 {
+  margin: 0 0 0.6rem;
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+  line-height: 1.2;
+  max-width: 18ch;
+}
+
+.lede {
+  margin: 0 0 1rem;
+  max-width: var(--max);
+  font-size: 1.15rem;
+  color: var(--ink-muted);
+}
+
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0 0 1.25rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.badge--exp {
+  background: var(--exp-bg);
+  color: var(--exp-ink);
+}
+
+.badge--ok {
+  background: var(--ok-bg);
+  color: var(--ok-ink);
+}
+
+.badge--warn {
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+}
+
+.callout {
+  max-width: var(--max);
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  background: var(--bg-elev);
+}
+
+.callout p {
+  margin: 0;
+}
+
+h2 {
+  margin: 2.2rem 0 0.7rem;
+  font-size: 1.35rem;
+}
+
+h3 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+p {
+  max-width: var(--max);
+}
+
+ul,
+ol {
+  max-width: var(--max);
+  padding-left: 1.2rem;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.9rem;
+  margin: 1rem 0 0;
+}
+
+.card {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  padding: 1rem 1.05rem;
+}
+
+.card h3 {
+  margin-top: 0;
+}
+
+.card p,
+.card ul {
+  margin-bottom: 0;
+  font-size: 0.95rem;
+}
+
+.meta {
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+}
+
+table {
+  width: 100%;
+  max-width: var(--wide);
+  border-collapse: collapse;
+  background: var(--bg-elev);
+  font-size: 0.95rem;
+}
+
+th,
+td {
+  border: 1px solid var(--line);
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: #efe7d8;
+  font-weight: 650;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 0.8rem 0 1.2rem;
+}
+
+pre,
+code {
+  font-family: ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
+}
+
+code {
+  font-size: 0.9em;
+  background: #efe7d8;
+  padding: 0.05em 0.3em;
+}
+
+pre {
+  overflow-x: auto;
+  padding: 0.9rem 1rem;
+  background: #1a1714;
+  color: #f6f1e8;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+}
+
+.diagram {
+  display: grid;
+  gap: 0.55rem;
+  margin: 1rem 0;
+  max-width: var(--wide);
+}
+
+.diagram__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.55rem;
+}
+
+.diagram__box {
+  border: 1px solid var(--line);
+  background: var(--bg-elev);
+  padding: 0.7rem 0.8rem;
+}
+
+.diagram__box strong {
+  display: block;
+}
+
+.diagram__box span {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+}
+
+.site-footer {
+  border-top: 1px solid var(--line);
+  padding: 1.4rem 0 2rem;
+  background: var(--bg-elev);
+  font-size: 0.9rem;
+  color: var(--ink-muted);
+}
+
+.site-footer p {
+  margin: 0.35rem 0;
+}
+
+.sources {
+  font-size: 0.9rem;
+}
+
+.sources li {
+  margin-bottom: 0.25rem;
+}
+
+@media (max-width: 36rem) {
+  body {
+    font-size: 1rem;
+  }
+
+  table {
+    font-size: 0.88rem;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161310;
+    --bg-elev: #211c18;
+    --ink: #f3ebe0;
+    --ink-muted: #c4b8a8;
+    --line: #3c342c;
+    --accent: #e7a06a;
+    --accent-ink: #161310;
+    --warn-bg: #3d2e14;
+    --warn-ink: #f0d7a0;
+    --ok-bg: #243318;
+    --ok-ink: #d6ebc8;
+    --exp-bg: #3a221c;
+    --exp-ink: #f0c8bc;
+    --focus: #8ab4ff;
+  }
+
+  th {
+    background: #2a241e;
+  }
+
+  code {
+    background: #2a241e;
+  }
+}

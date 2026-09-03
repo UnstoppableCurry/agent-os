@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>架构 — AgentOS 项目概览</title>
+  <meta name="description" content="按当前 Rust 与 Swift 源码整理的 AgentOS 架构：Bot 进程、记忆存储、HTTP/SSE/WebSocket 路由。标出与 CLAUDE.md 设计稿的差异。">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://unstoppablecurry.github.io/agent-os/architecture.html">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="zh_CN">
+  <meta property="og:title" content="架构 — AgentOS 项目概览">
+  <meta property="og:description" content="以 backend/src/main.rs 与各模块为准的架构说明，不把未实现的设计稿写成现状。">
+  <meta property="og:url" content="https://unstoppablecurry.github.io/agent-os/architecture.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="stylesheet" href="/agent-os/css/site.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到正文</a>
+  <header class="site-header">
+    <div class="site-header__inner">
+      <a class="brand" href="/agent-os/">
+        <span class="brand__name">AgentOS</span>
+        <span class="brand__sub">仓库项目概览</span>
+      </a>
+      <nav class="nav" aria-label="站点">
+        <a href="/agent-os/">愿景</a>
+        <a href="/agent-os/architecture.html" aria-current="page">架构</a>
+        <a href="/agent-os/structure.html">结构</a>
+        <a href="/agent-os/limitations.html">局限</a>
+        <a href="https://github.com/unstoppablecurry/agent-os">源码</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="wrap">
+      <header class="hero">
+        <h1>架构（以源码为准）</h1>
+        <p class="lede"><code>CLAUDE.md</code> 仍描述 <code>router.rs</code>、<code>agent/</code>、<code>query.rs</code> 等路径。当前后端是 <code>api</code> / <code>bot</code> / <code>engine</code> / <code>memory</code> / <code>sensor</code> / <code>skill</code>。下表与框图只反映能打开的文件。</p>
+      </header>
+
+      <section aria-labelledby="layers-heading">
+        <h2 id="layers-heading">分层（README + 源码）</h2>
+        <div class="diagram" role="img" aria-label="四层模块：SwiftUI 客户端与 LifeKit，经 HTTP SSE WebSocket 连到 Rust 后端，后端读写记忆目录与本地 CLI 引擎。">
+          <div class="diagram__row">
+            <div class="diagram__box">
+              <strong>app/</strong>
+              <span>SwiftUI：机器人列表、聊天、设置</span>
+            </div>
+            <div class="diagram__box">
+              <strong>lifekit/</strong>
+              <span>事件缓冲、HTTP 上报、WebSocket 监听</span>
+            </div>
+          </div>
+          <div class="diagram__row">
+            <div class="diagram__box">
+              <strong>backend/</strong>
+              <span>Axum：Bot 管理、SSE、事件摄入、晶体读取</span>
+            </div>
+          </div>
+          <div class="diagram__row">
+            <div class="diagram__box">
+              <strong>memory/</strong>
+              <span>流 JSONL、晶体 Markdown、镜像模板、根基文稿</span>
+            </div>
+            <div class="diagram__box">
+              <strong>engine 适配器</strong>
+              <span>拉起本地 claude / kimi / codex 进程</span>
+            </div>
+          </div>
+        </div>
+        <p class="meta">这是目录关系示意，不是运行时截图，也不是性能或可用性证明。</p>
+      </section>
+
+      <section aria-labelledby="api-heading">
+        <h2 id="api-heading">后端实际注册的路由</h2>
+        <p>摘自 <code>backend/src/main.rs</code>。设计文档里的 <code>/api/bots</code>、<code>/api/memory/query</code>、<code>/api/skills</code>、<code>/ws</code> <strong>没有</strong>按原文出现。</p>
+        <div class="table-wrap">
+          <table>
+            <caption class="meta">当前 Axum 路由</caption>
+            <thead>
+              <tr>
+                <th scope="col">方法</th>
+                <th scope="col">路径</th>
+                <th scope="col">源码行为（简述）</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>GET</td>
+                <td><code>/health</code></td>
+                <td>返回 <code>status/ok</code>、<code>service/agent-os</code>、<code>version/0.1.0</code></td>
+              </tr>
+              <tr>
+                <td>GET / POST</td>
+                <td><code>/v1/bots</code></td>
+                <td>列出或创建 Bot</td>
+              </tr>
+              <tr>
+                <td>GET / DELETE</td>
+                <td><code>/v1/bots/{id}</code></td>
+                <td>查询或删除 Bot</td>
+              </tr>
+              <tr>
+                <td>POST</td>
+                <td><code>/v1/bots/{id}/messages</code></td>
+                <td>发消息，以 SSE 推送引擎事件</td>
+              </tr>
+              <tr>
+                <td>GET</td>
+                <td><code>/v1/bots/{id}/ws</code></td>
+                <td>该 Bot 的 WebSocket 升级</td>
+              </tr>
+              <tr>
+                <td>POST</td>
+                <td><code>/v1/events</code></td>
+                <td>批量写入记忆流</td>
+              </tr>
+              <tr>
+                <td>GET</td>
+                <td><code>/v1/memory/crystals</code></td>
+                <td>列出晶体文件名</td>
+              </tr>
+              <tr>
+                <td>GET</td>
+                <td><code>/v1/memory/crystals/{name}</code></td>
+                <td>读取单个晶体 Markdown</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section aria-labelledby="memory-heading">
+        <h2 id="memory-heading">记忆实现</h2>
+        <ul>
+          <li><code>StreamStore</code>：按事件日期追加 <code>YYYY-MM-DD.jsonl</code>，注释写明只增。</li>
+          <li><code>CrystalStore</code>：读写 <code>*.md</code>，可列出与追加段落。</li>
+          <li>默认目录来自环境变量 <code>AGENT_OS_MEMORY_DIR</code> / <code>AGENT_OS_DATA_DIR</code>；未设置时回落到 <code>$HOME/projects/agent-os/...</code>。</li>
+        </ul>
+        <p><code>Cargo.toml</code> <strong>没有</strong> SQLite 依赖。README 与 <code>CLAUDE.md</code> 把 SQLite 列为数据库选择，属于文档超前于实现。</p>
+      </section>
+
+      <section aria-labelledby="engine-heading">
+        <h2 id="engine-heading">Agent 引擎</h2>
+        <p><code>AgentEngine</code> trait 负责 spawn / send / subscribe / stop。三个适配器在源码中存在：</p>
+        <ul>
+          <li><code>ClaudeCodeAdapter</code>：调用本地 <code>claude</code>，使用 <code>stream-json</code> 输入输出。</li>
+          <li><code>KimiAdapter</code>：查找本地 <code>kimi</code> 可执行文件。</li>
+          <li><code>CodexAdapter</code>：查找本地 <code>codex</code> 可执行文件。</li>
+        </ul>
+        <p>这证明仓库在对接<strong>本机 CLI</strong>，不能据此写成「已接入官方云 API 并完成评测」。README 的「Claude API」与适配器实现不是同一条路径。</p>
+      </section>
+
+      <section aria-labelledby="client-heading">
+        <h2 id="client-heading">客户端与 SDK</h2>
+        <p><code>ContentView</code> 使用 <code>NavigationSplitView</code>：侧栏机器人列表，详情为 <code>ChatView</code>；可打开创建设置表单与 <code>SettingsView</code>。网络层默认 <code>http://127.0.0.1:3000</code>，消息走 SSE。</p>
+        <p>LifeKit 提供 <code>configure</code>、<code>track</code>、按名 <code>query</code> 晶体、<code>listen</code> 洞察推送。其晶体查询 URL 为 <code>/v1/crystals/{name}</code>，与后端 <code>/v1/memory/crystals/{name}</code> <strong>不一致</strong>。事件 POST 路径 <code>/v1/events</code> 与后端一致，请求体形状是否匹配未在本站验证运行时。</p>
+        <p><code>DashboardView</code> 与若干 Sensor 类型存在于 <code>app/</code> 并编进 Xcode 工程，但未被 <code>ContentView</code> 引用。仪表盘数字与「最近活动」在源码里是写死的示例，<strong>不是</strong>真实采集结果。</p>
+      </section>
+
+      <section aria-labelledby="decision-heading">
+        <h2 id="decision-heading">文档中的架构决策</h2>
+        <p>下表来自 <code>CLAUDE.md</code>，表示作者意图，不保证每一项都已落地。</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">决策</th>
+                <th scope="col">文档选择</th>
+                <th scope="col">源码核对</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>后端语言</td>
+                <td>Rust</td>
+                <td>已落地（<code>backend/</code>）</td>
+              </tr>
+              <tr>
+                <td>Web 框架</td>
+                <td>Axum + Tokio</td>
+                <td>已落地（Axum 0.8）</td>
+              </tr>
+              <tr>
+                <td>前端</td>
+                <td>SwiftUI，文档写 iOS + macOS 统一</td>
+                <td>有 SwiftUI 源码；Xcode 工程目标见结构页</td>
+              </tr>
+              <tr>
+                <td>SDK</td>
+                <td>Swift Package</td>
+                <td>LifeKit 与 AgentOS 均有 <code>Package.swift</code></td>
+              </tr>
+              <tr>
+                <td>通信</td>
+                <td>WebSocket</td>
+                <td>有 per-bot WebSocket；聊天主路径是 SSE</td>
+              </tr>
+              <tr>
+                <td>数据库</td>
+                <td>SQLite</td>
+                <td>依赖清单中未见；记忆为文件</td>
+              </tr>
+              <tr>
+                <td>AI 接口</td>
+                <td>Claude API</td>
+                <td>引擎层封装本地 CLI</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <p><a href="/agent-os/">返回愿景</a> · <a href="/agent-os/structure.html">结构</a> · <a href="/agent-os/limitations.html">局限</a></p>
+      <p>核对文件：<code>backend/src/main.rs</code>、<code>backend/Cargo.toml</code>、<code>app/Sources/AgentOS/ContentView.swift</code>、<code>lifekit/Sources/LifeKit/LifeKit.swift</code>。</p>
+    </div>
+  </footer>
+</body>
+</html>

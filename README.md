@@ -52,6 +52,12 @@ make build-lifekit
 make test
 ```
 
+## 项目概览（GitHub Pages）
+
+静态说明站点（中文）：[https://unstoppablecurry.github.io/agent-os/](https://unstoppablecurry.github.io/agent-os/)
+
+源文件在 [`docs/`](./docs/)，由 [GitHub Actions Pages 工作流](./.github/workflows/pages.yml) 只发布该目录。站点根据本 README 与仓库文档/源码整理愿景、架构、结构与局限；**没有界面截图，也不陈述未在仓库中出现的用户或结果**。本地检查：`make test-pages`。
+
 ## 开发
 
 详见 [CLAUDE.md](./CLAUDE.md) 获取完整的架构设计和开发规范。

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>仓库结构 — AgentOS 项目概览</title>
+  <meta name="description" content="AgentOS 当前目录、各模块职责，以及 Package.swift / project.yml 中的平台声明。不把未出现的平台写成已支持。">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://unstoppablecurry.github.io/agent-os/structure.html">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="zh_CN">
+  <meta property="og:title" content="仓库结构 — AgentOS 项目概览">
+  <meta property="og:description" content="对照真实目录树与清单文件，而不是 CLAUDE.md 里过时的树。">
+  <meta property="og:url" content="https://unstoppablecurry.github.io/agent-os/structure.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="stylesheet" href="/agent-os/css/site.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到正文</a>
+  <header class="site-header">
+    <div class="site-header__inner">
+      <a class="brand" href="/agent-os/">
+        <span class="brand__name">AgentOS</span>
+        <span class="brand__sub">仓库项目概览</span>
+      </a>
+      <nav class="nav" aria-label="站点">
+        <a href="/agent-os/">愿景</a>
+        <a href="/agent-os/architecture.html">架构</a>
+        <a href="/agent-os/structure.html" aria-current="page">结构</a>
+        <a href="/agent-os/limitations.html">局限</a>
+        <a href="https://github.com/unstoppablecurry/agent-os">源码</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="wrap">
+      <header class="hero">
+        <h1>仓库结构</h1>
+        <p class="lede">下列树按撰写本站时仓库中存在的路径整理。<code>CLAUDE.md</code> 第三节的树（含 <code>router.rs</code>、<code>agent/</code>、<code>query.rs</code>、<code>loader.rs</code>）已过时。</p>
+      </header>
+
+      <section aria-labelledby="tree-heading">
+        <h2 id="tree-heading">顶层目录</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">路径</th>
+                <th scope="col">README 说明</th>
+                <th scope="col">当前可见内容</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>backend/</code></td>
+                <td>Rust 后端（Axum + Tokio）</td>
+                <td><code>src/{api,bot,engine,memory,sensor,skill,types,main}.rs</code>；健康接口写版本 0.1.0</td>
+              </tr>
+              <tr>
+                <td><code>app/</code></td>
+                <td>SwiftUI 主 App（iOS + macOS）</td>
+                <td>Swift 源码、SPM 清单、XcodeGen <code>project.yml</code>、Xcode 工程</td>
+              </tr>
+              <tr>
+                <td><code>lifekit/</code></td>
+                <td>LifeKit Swift Package（SDK）</td>
+                <td>Models / Transport / EventBuffer / Privacy，以及单元测试</td>
+              </tr>
+              <tr>
+                <td><code>memory/</code></td>
+                <td>记忆文件系统</td>
+                <td>stream、crystal、mirror 模板、sensors YAML、bedrock 文稿</td>
+              </tr>
+              <tr>
+                <td><code>skills/</code></td>
+                <td>Skills 扩展库</td>
+                <td>一份 README，以及 <code>git-workflow/SKILL.md</code></td>
+              </tr>
+              <tr>
+                <td><code>Makefile</code></td>
+                <td>构建与测试入口</td>
+                <td>backend / lifekit 目标；无 app 目标</td>
+              </tr>
+              <tr>
+                <td><code>docs/</code></td>
+                <td>（本站新增）</td>
+                <td>仅静态概览，由 Actions 发布，不包含记忆原文</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section aria-labelledby="backend-heading">
+        <h2 id="backend-heading">backend 模块</h2>
+        <ul>
+          <li><code>bot/</code>：管理器、supervisor、会话存储、事件缓冲、空闲回收（默认 30 分钟任务）。</li>
+          <li><code>engine/</code>：进程句柄与三个 CLI 适配器。</li>
+          <li><code>memory/</code>：流与晶体文件存储。</li>
+          <li><code>api/</code>：health、bots、events、memory、ws 的处理函数（路由集中在 <code>main.rs</code>）。</li>
+          <li><code>sensor/mod.rs</code> 与 <code>skill/mod.rs</code>：注释写明「future expansion」，视为桩。</li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="app-heading">
+        <h2 id="app-heading">平台声明（只引用清单）</h2>
+        <ul>
+          <li><code>app/Package.swift</code>：<code>platforms: iOS 17, macOS 14</code>；产品是名为 AgentOS 的 <strong>library</strong>，并排除 <code>@main</code> 的 <code>AgentOSApp.swift</code>。</li>
+          <li><code>app/project.yml</code>：应用目标 <code>platform: macOS</code>，部署目标 macOS 14.0，包名 <code>com.unstoppablecurry.AgentOS</code>，营销版本 0.1.0。未见 iOS 应用 target。</li>
+          <li>源码里有 <code>#if os(iOS)</code> 分支（例如创建表单导航栏、设置页键盘类型）。</li>
+          <li><code>lifekit/Package.swift</code>：同样声明 iOS 17 与 macOS 14。</li>
+        </ul>
+        <p>因此：<strong>清单表达了编译目标意图</strong>；README 的「iOS + macOS」与 Xcode 工程「仅 macOS 应用」并存。本站不把它写成已在两套系统上验证发布。</p>
+      </section>
+
+      <section aria-labelledby="memory-heading">
+        <h2 id="memory-heading">memory 与 skills</h2>
+        <p>晶体目录里有 identity、people、goals、projects、state、patterns、body、wealth、insights、skills、time 等 Markdown 文件名。镜像有 weekly / monthly 模板。传感器目录有 health、calendar、contacts、finance、screen、git 的 YAML 配置草稿。</p>
+        <p>这些是仓库内的设计/数据文件，<strong>不等于</strong>对应采集器已接通。本站不转载其中的个人身份内容。</p>
+        <p><code>skills/README.md</code> 规定每个 Skill 一个目录加 <code>SKILL.md</code>，并列出内置 <code>git-workflow</code>（always 加载）。后端 skill 模块尚未加载这些文件。</p>
+      </section>
+
+      <section aria-labelledby="env-heading">
+        <h2 id="env-heading">环境变量（文档 vs 代码）</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">变量</th>
+                <th scope="col">CLAUDE.md</th>
+                <th scope="col">源码使用</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>AGENT_OS_PORT</code></td>
+                <td>默认 3000</td>
+                <td>未读取；端口写死 3000</td>
+              </tr>
+              <tr>
+                <td><code>AGENT_OS_DB_PATH</code></td>
+                <td>SQLite 路径</td>
+                <td>未见对应依赖或读取</td>
+              </tr>
+              <tr>
+                <td><code>AGENT_OS_MEMORY_DIR</code></td>
+                <td>默认 <code>./memory</code></td>
+                <td>有读取；缺省路径与文档不同</td>
+              </tr>
+              <tr>
+                <td><code>AGENT_OS_DATA_DIR</code></td>
+                <td>未列</td>
+                <td>Bot 与会话数据目录</td>
+              </tr>
+              <tr>
+                <td><code>ANTHROPIC_API_KEY</code></td>
+                <td>列出</td>
+                <td>后端 crate 未出现该键名</td>
+              </tr>
+              <tr>
+                <td><code>AGENT_OS_LOG_LEVEL</code></td>
+                <td>默认 info</td>
+                <td>使用 tracing 的 <code>RUST_LOG</code> 风格过滤器，未见此键</td>
+              </tr>
+              <tr>
+                <td><code>CLAUDE_PATH</code> / <code>KIMI_PATH</code> / <code>CODEX_PATH</code></td>
+                <td>未列</td>
+                <td>适配器用来定位 CLI</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <p><a href="/agent-os/">返回愿景</a> · <a href="/agent-os/architecture.html">架构</a> · <a href="/agent-os/limitations.html">局限</a></p>
+    </div>
+  </footer>
+</body>
+</html>

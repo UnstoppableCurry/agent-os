@@ -1,4 +1,4 @@
-.PHONY: build-backend build-lifekit run-backend test-backend test-lifekit test clean fmt
+.PHONY: build-backend build-lifekit run-backend test-backend test-lifekit test-pages test clean fmt
 
 # === Build ===
 
@@ -23,7 +23,10 @@ test-backend:
 test-lifekit:
 	cd lifekit && swift test
 
-test: test-backend test-lifekit
+test-pages:
+	python3 scripts/check_pages_site.py
+
+test: test-backend test-lifekit test-pages
 
 # === Clean ===
 
