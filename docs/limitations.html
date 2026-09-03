@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>局限与证据边界 — AgentOS 项目概览</title>
+  <meta name="description" content="AgentOS 已知未完成项、文档与源码差异、测试覆盖与本站刻意不写的内容。避免把实验代码读成成品。">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://unstoppablecurry.github.io/agent-os/limitations.html">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="zh_CN">
+  <meta property="og:title" content="局限与证据边界 — AgentOS 项目概览">
+  <meta property="og:description" content="桩模块、API 漂移、无截图、无成效数据。阅读仓库时的注意事项。">
+  <meta property="og:url" content="https://unstoppablecurry.github.io/agent-os/limitations.html">
+  <meta name="twitter:card" content="summary">
+  <link rel="stylesheet" href="/agent-os/css/site.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到正文</a>
+  <header class="site-header">
+    <div class="site-header__inner">
+      <a class="brand" href="/agent-os/">
+        <span class="brand__name">AgentOS</span>
+        <span class="brand__sub">仓库项目概览</span>
+      </a>
+      <nav class="nav" aria-label="站点">
+        <a href="/agent-os/">愿景</a>
+        <a href="/agent-os/architecture.html">架构</a>
+        <a href="/agent-os/structure.html">结构</a>
+        <a href="/agent-os/limitations.html" aria-current="page">局限</a>
+        <a href="https://github.com/unstoppablecurry/agent-os">源码</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="wrap">
+      <header class="hero">
+        <h1>局限与证据边界</h1>
+        <p class="lede">项目处于早期。下面只列能在文件里指出的缺口，不补充「即将上线」或「已有用户」之类无法核验的句子。</p>
+      </header>
+
+      <section aria-labelledby="incomplete-heading">
+        <h2 id="incomplete-heading">源码标明或可观察的未完成</h2>
+        <ul>
+          <li><code>backend/src/skill/mod.rs</code>：仅注释「future expansion」。</li>
+          <li><code>backend/src/sensor/mod.rs</code>：同样是未来扩展桩。</li>
+          <li>后端目录没有 <code>#[cfg(test)]</code>；<code>make test-backend</code> 不会覆盖业务逻辑。</li>
+          <li>LifeKit 有模型、缓冲与隐私的单元测试；没有看到对真实服务器的集成测试。</li>
+          <li><code>DashboardView</code> 未接入主导航，<code>refreshData()</code> 为空，统计与活动是示例常量。</li>
+          <li>Health / Calendar / Contacts Sensor 类型存在，设置页有开关，不能据此声称采集链路已跑通。</li>
+          <li>镜像层目前主要是模板，未见后端定时生成周报/月报/年报的实现。</li>
+          <li>晶体「从流中提炼」在文档中是目标；<code>CrystalStore</code> 只做文件读写，没有提炼任务。</li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="drift-heading">
+        <h2 id="drift-heading">文档与实现漂移</h2>
+        <ul>
+          <li>API 前缀：文档 <code>/api/...</code> 与 <code>/ws</code>；代码 <code>/v1/...</code> 与 <code>/v1/bots/{id}/ws</code>。</li>
+          <li>记忆检索 <code>GET /api/memory/query</code>、技能列表 <code>GET /api/skills</code>：路由表中不存在。</li>
+          <li>SQLite、<code>AGENT_OS_PORT</code>、<code>ANTHROPIC_API_KEY</code>：文档有，后端 crate 未兑现。</li>
+          <li>LifeKit <code>query</code> 的路径与后端晶体路由不一致。</li>
+          <li>模块树：<code>CLAUDE.md</code> 未更新到 <code>bot/</code> 与 <code>engine/</code>。</li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="evidence-heading">
+        <h2 id="evidence-heading">本站拒绝发明的内容</h2>
+        <ul>
+          <li><strong>界面截图</strong>：仓库没有 App 或后端的屏幕图像，故不用示意图冒充产品 UI。</li>
+          <li><strong>平台已验证</strong>：不写「已在 iPhone / iPad / Mac 全系可用」。只引用 <code>Package.swift</code> 与 <code>project.yml</code>。</li>
+          <li><strong>用户、案例、效果</strong>：没有任何评测、星标或引用可引用，故不写。</li>
+          <li><strong>24 小时自动化已实现</strong>：这是 README 目标句，不是运行报告。空闲管理与进程监督存在，不等于全天候可靠性。</li>
+          <li><strong>个人记忆正文</strong>：不复制 <code>SOUL.md</code> 或晶体中的身份信息。</li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="pages-heading">
+        <h2 id="pages-heading">这个静态站本身</h2>
+        <ul>
+          <li>只发布 <code>docs/</code>，避免把 <code>data/</code> 会话或记忆原文打进 Pages 产物。</li>
+          <li>无第三方脚本与字体；样式为自托管 CSS。</li>
+          <li>启用仓库的 GitHub Pages 时，需要在仓库设置里把来源选成 <strong>GitHub Actions</strong>。工作流本身不会改这项设置。</li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="sources-heading">
+        <h2 id="sources-heading">主要证据文件</h2>
+        <ul class="sources">
+          <li><code>README.md</code></li>
+          <li><code>CLAUDE.md</code>（意图与过时结构）</li>
+          <li><code>Makefile</code>、<code>backend/Cargo.toml</code>、<code>backend/src/main.rs</code></li>
+          <li><code>app/Package.swift</code>、<code>app/project.yml</code>、<code>app/Sources/AgentOS/*</code></li>
+          <li><code>lifekit/Package.swift</code>、<code>lifekit/Sources/LifeKit/*</code>、<code>lifekit/Tests/*</code></li>
+          <li><code>skills/README.md</code></li>
+        </ul>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <p><a href="/agent-os/">返回愿景</a> · <a href="https://github.com/unstoppablecurry/agent-os">GitHub 仓库</a></p>
+    </div>
+  </footer>
+</body>
+</html>

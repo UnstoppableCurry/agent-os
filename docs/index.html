@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AgentOS — 个人 AI 操作系统（实验性概览）</title>
+  <meta name="description" content="AgentOS 仓库的静态项目概览：愿景、架构、目录结构与已知局限。仅依据 README、设计文档与源码陈述，不含截图或使用数据。">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://unstoppablecurry.github.io/agent-os/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="zh_CN">
+  <meta property="og:title" content="AgentOS — 个人 AI 操作系统（实验性概览）">
+  <meta property="og:description" content="基于仓库证据的静态项目卡：Rust 后端、SwiftUI 客户端、LifeKit SDK 与记忆文件系统。实验性，证据有限。">
+  <meta property="og:url" content="https://unstoppablecurry.github.io/agent-os/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="AgentOS — 个人 AI 操作系统（实验性概览）">
+  <meta name="twitter:description" content="基于仓库证据的静态项目卡。无界面截图，不声称用户规模或结果。">
+  <link rel="stylesheet" href="/agent-os/css/site.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareSourceCode",
+    "name": "AgentOS",
+    "alternateName": "agent-os",
+    "description": "个人 AI 操作系统的实验性代码库：通过聊天界面管理多个 Agent，并汇入统一记忆流。本页为仓库概览，不是产品发布说明。",
+    "url": "https://unstoppablecurry.github.io/agent-os/",
+    "codeRepository": "https://github.com/unstoppablecurry/agent-os",
+    "programmingLanguage": ["Rust", "Swift"],
+    "runtimePlatform": ["Axum", "SwiftUI"],
+    "inLanguage": "zh-Hans",
+    "version": "0.1.0",
+    "license": "https://github.com/unstoppablecurry/agent-os"
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到正文</a>
+  <header class="site-header">
+    <div class="site-header__inner">
+      <a class="brand" href="/agent-os/">
+        <span class="brand__name">AgentOS</span>
+        <span class="brand__sub">仓库项目概览</span>
+      </a>
+      <nav class="nav" aria-label="站点">
+        <a href="/agent-os/" aria-current="page">愿景</a>
+        <a href="/agent-os/architecture.html">架构</a>
+        <a href="/agent-os/structure.html">结构</a>
+        <a href="/agent-os/limitations.html">局限</a>
+        <a href="https://github.com/unstoppablecurry/agent-os">源码</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="wrap">
+      <header class="hero">
+        <h1>个人 AI 操作系统的实验性代码库</h1>
+        <p class="lede">README 写明目标：通过手机聊天界面管理多个 AI Agent，做 24 小时自动化；「每个你开发的 App 都是 AI 的一个触角」。本站只复述仓库里能核对的内容。</p>
+        <div class="badge-row" aria-label="状态标签">
+          <span class="badge badge--exp">实验性 / 0.1.0</span>
+          <span class="badge badge--warn">无界面截图</span>
+          <span class="badge badge--warn">无用户或结果数据</span>
+          <span class="badge badge--ok">证据来自 README 与源码</span>
+        </div>
+        <aside class="callout" aria-label="诚实声明">
+          <p>仓库根目录 README 约 1.3 KB，没有现成 HTML 或产品截图。部分能力写在 <code>CLAUDE.md</code> 等设计文档里，与当前源码不完全一致。未完成与文档漂移见 <a href="/agent-os/limitations.html">局限</a>。</p>
+        </aside>
+      </header>
+
+      <section aria-labelledby="card-heading">
+        <h2 id="card-heading">项目卡</h2>
+        <div class="card-grid">
+          <article class="card">
+            <h3>是什么</h3>
+            <p>个人向的 Agent 编排与记忆实验：Rust 后端管进程与事件，SwiftUI 客户端做聊天与设置，LifeKit 作为把 App 事件送进记忆系统的 SDK。</p>
+          </article>
+          <article class="card">
+            <h3>仓库声明的技术栈</h3>
+            <p>后端 Rust / Axum / Tokio；客户端 SwiftUI / Combine；SDK 为 Swift Package；通信 WebSocket + JSON；AI 接口在 README 中写为 Claude API（Anthropic）。后端 <code>Cargo.toml</code> 版本号为 <code>0.1.0</code>。</p>
+          </article>
+          <article class="card">
+            <h3>源码里实际能看到的</h3>
+            <p>Bot 的创建、列表、SSE 发消息、按 Bot 的 WebSocket、事件写入按日 JSONL、晶体 Markdown 读写。引擎适配器通过本地 CLI 进程对接 Claude Code、Kimi、Codex。</p>
+          </article>
+          <article class="card">
+            <h3>明确未宣称</h3>
+            <p>本站不展示伪造界面、不声称已上架商店、不给出下载量或满意度。平台范围以清单文件为准，见结构与局限页。</p>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="vision-heading">
+        <h2 id="vision-heading">愿景（来自 README 与 CLAUDE.md）</h2>
+        <ul>
+          <li>每个 App 是触角：收集数据、执行任务。</li>
+          <li>记忆系统是灵魂：事件汇入统一记忆流。</li>
+          <li>Agent 是大脑：从记忆学习、决策、行动。</li>
+        </ul>
+        <p>记忆哲学在文档中分成四层：<strong>流</strong>（只增时间线）、<strong>晶体</strong>（从流提炼的结构化知识）、<strong>镜像</strong>（定期复盘）、<strong>根基</strong>（<code>memory/bedrock/SOUL.md</code> 等手写灵魂定义）。晶体「定期提炼」与镜像「自动生成」在源码中尚未形成完整流水线，见局限页。</p>
+      </section>
+
+      <section aria-labelledby="start-heading">
+        <h2 id="start-heading">仓库记载的本地命令</h2>
+        <p>README 与根目录 <code>Makefile</code> 提供后端构建/运行，以及 LifeKit 构建与测试。没有独立的 App 构建目标。</p>
+        <pre><code># 构建后端
+make build-backend
+
+# 运行后端
+make run-backend
+
+# 构建 LifeKit SDK
+make build-lifekit
+
+# 运行测试（后端 cargo test + LifeKit swift test）
+make test</code></pre>
+        <p class="meta">后端入口将监听地址写死为 <code>0.0.0.0:3000</code>。健康检查返回 <code>version: 0.1.0</code>。</p>
+      </section>
+
+      <section aria-labelledby="more-heading">
+        <h2 id="more-heading">继续阅读</h2>
+        <ul>
+          <li><a href="/agent-os/architecture.html">架构</a>：实际模块、路由与引擎，对照设计文档。</li>
+          <li><a href="/agent-os/structure.html">结构</a>：目录与清单文件里的平台声明。</li>
+          <li><a href="/agent-os/limitations.html">局限</a>：桩代码、文档漂移、测试与证据缺口。</li>
+        </ul>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <p>静态站点，源文件在仓库 <code>docs/</code>。预定地址：<a href="https://unstoppablecurry.github.io/agent-os/">https://unstoppablecurry.github.io/agent-os/</a></p>
+      <p>正文不收录 <code>memory/</code> 与 <code>data/</code> 中的个人记录。证据来源：<code>README.md</code>、<code>CLAUDE.md</code>、各模块源码。</p>
+    </div>
+  </footer>
+</body>
+</html>

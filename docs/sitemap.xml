@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://unstoppablecurry.github.io/agent-os/</loc>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://unstoppablecurry.github.io/agent-os/architecture.html</loc>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://unstoppablecurry.github.io/agent-os/structure.html</loc>
+    <changefreq>monthly</changefreq>
+  </url>
+  <url>
+    <loc>https://unstoppablecurry.github.io/agent-os/limitations.html</loc>
+    <changefreq>monthly</changefreq>
+  </url>
+</urlset>
